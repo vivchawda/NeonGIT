@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use tauri::Emitter; // Required for window.emit() in v2
+use tauri::Emitter;
 
 fn delete_bak_files(dir: &Path) -> u32 {
     let mut count = 0;
@@ -85,11 +85,15 @@ fn start_feature(repo_path: String, branch_name: String) -> Result<String, Strin
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
+// UPGRADE: New Delimiter-based Format String for JavaScript splitting
 #[tauri::command]
 fn view_history(repo_path: String) -> Result<String, String> {
+    // Format: [==COMMIT==]Hash|--|ShortHash|--|AuthorName|--|AuthorDate|--|RelativeDate|--|Subject|--|Body
+    let format_str = "--pretty=format:[==COMMIT==]%H|--|%h|--|%an|--|%ad|--|%ar|--|%s|--|%b";
     let output = Command::new("git")
         .current_dir(&repo_path)
-        .args(["log", "-n", "5", "--oneline", "--decorate"])
+        .args(["log", format_str])
         .output()
         .map_err(|e| format!("Failed: {}", e))?;
     if output.status.success() {
@@ -98,6 +102,7 @@ fn view_history(repo_path: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
 #[tauri::command]
 fn get_repo_files(repo_path: String) -> Result<Vec<String>, String> {
     let output = Command::new("git")
@@ -117,6 +122,23 @@ fn get_repo_files(repo_path: String) -> Result<Vec<String>, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
+// NEW: Sync Android using npx
+#[tauri::command]
+fn sync_android(repo_path: String) -> Result<String, String> {
+    let output = Command::new("sh")
+        .current_dir(&repo_path)
+        .arg("-c")
+        .arg("npx cap sync android")
+        .output()
+        .map_err(|e| format!("Failed to spawn npx: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+    }
+}
+
 #[tauri::command]
 fn check_git_status(repo_path: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -130,8 +152,6 @@ fn check_git_status(repo_path: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
-
-// UPGRADE: Real-time window emit streaming
 #[tauri::command]
 fn perform_quick_commit(
     window: tauri::Window,
@@ -139,7 +159,6 @@ fn perform_quick_commit(
     message: String,
 ) -> Result<String, String> {
     let mut log = String::new();
-
     let _ = window.emit("commit-progress", "🧹 Scanning for .bak* files...");
     let deleted_count = delete_bak_files(Path::new(&repo_path));
     if deleted_count > 0 {
@@ -148,7 +167,6 @@ fn perform_quick_commit(
             deleted_count
         ));
     }
-
     let _ = window.emit("commit-progress", "📦 Staging files (git add .)...");
     let add_output = Command::new("git")
         .current_dir(&repo_path)
@@ -158,7 +176,6 @@ fn perform_quick_commit(
     if !add_output.status.success() {
         return Err(String::from_utf8_lossy(&add_output.stderr).to_string());
     }
-
     let _ = window.emit("commit-progress", "📝 Writing commit message...");
     let commit_output = Command::new("git")
         .current_dir(&repo_path)
@@ -166,17 +183,13 @@ fn perform_quick_commit(
         .output()
         .map_err(|e| format!("Failed commit: {}", e))?;
     log.push_str(&String::from_utf8_lossy(&commit_output.stdout).into_owned());
-
     let _ = window.emit("commit-progress", "🚀 Pushing to remote origin...");
-
-    // UPGRADE: Capture real-time push output stream (git outputs push progress to stderr)
     let mut push_cmd = Command::new("git")
         .current_dir(&repo_path)
         .args(["push"])
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to spawn git push: {}", e))?;
-
     if let Some(stderr) = push_cmd.stderr.take() {
         let reader = BufReader::new(stderr);
         for line in reader.lines().flatten() {
@@ -184,9 +197,7 @@ fn perform_quick_commit(
             log.push_str(&format!("{}\n", line));
         }
     }
-
     let push_status = push_cmd.wait().map_err(|e| e.to_string())?;
-
     if push_status.success() {
         Ok(log)
     } else {
@@ -200,7 +211,6 @@ fn perform_quick_commit(
             .args(["pull", "--rebase"])
             .output()
             .map_err(|e| format!("Failed pull: {}", e))?;
-
         if !pull_output.status.success() {
             let _ = window.emit(
                 "commit-progress",
@@ -210,17 +220,14 @@ fn perform_quick_commit(
             log.push_str(&String::from_utf8_lossy(&pull_output.stderr));
             return Err(log);
         }
-
         let _ = window.emit("commit-progress", "🔄 Rebase Successful. Retrying Push...");
         log.push_str("\n-- Pull Rebase Successful. Retrying Push... --\n");
-
         let mut push2_cmd = Command::new("git")
             .current_dir(&repo_path)
             .args(["push"])
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| e.to_string())?;
-
         if let Some(stderr2) = push2_cmd.stderr.take() {
             let reader2 = BufReader::new(stderr2);
             for line in reader2.lines().flatten() {
@@ -228,9 +235,7 @@ fn perform_quick_commit(
                 log.push_str(&format!("{}\n", line));
             }
         }
-
         let push2_status = push2_cmd.wait().map_err(|e| e.to_string())?;
-
         if push2_status.success() {
             Ok(log)
         } else {
@@ -249,6 +254,7 @@ fn main() {
             start_feature,
             view_history,
             get_repo_files,
+            sync_android,
             check_git_status,
             perform_quick_commit
         ])

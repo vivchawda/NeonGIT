@@ -117,7 +117,6 @@
       animation: progress-slide 1.2s infinite linear;
     }
 
-    /* UPGRADE: Custom Scrollbar for Terminal to match VC Lab style */
     #output-console::-webkit-scrollbar {
       width: 6px;
     }
@@ -129,6 +128,83 @@
 
     #output-console::-webkit-scrollbar-track {
       background: var(--hd);
+    }
+
+    #history-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #history-list::-webkit-scrollbar-thumb {
+      background: var(--bd2);
+      border-radius: 3px;
+    }
+
+    /* UPGRADE: Main Grid Button Sizing */
+    .main-btn {
+      height: 100%;
+      width: 100%;
+      font-size: 13px;
+      justify-content: center;
+    }
+
+    /* UPGRADE: Expandable Commit Cards */
+    .commit-card {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--bd);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+
+    .commit-card:hover {
+      background: var(--sf3);
+    }
+
+    .commit-hash {
+      display: inline-block;
+      background: rgba(232, 255, 71, 0.1);
+      color: var(--ac);
+      border: 1px solid rgba(232, 255, 71, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--fu);
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .commit-hash:hover {
+      background: var(--ac);
+      color: #000;
+    }
+
+    .commit-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--td);
+    }
+
+    .commit-msg {
+      font-size: 12px;
+      color: var(--tx);
+      font-weight: 500;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .commit-details-panel {
+      display: none;
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--bd);
+    }
+
+    .commit-card.expanded .commit-details-panel {
+      display: block;
     }
   </style>
 </head>
@@ -154,31 +230,45 @@
       title="About Neon GIT Manager">i</button>
   </div>
 
-  <!-- UPGRADE: Added min-height: 0 to force flexbox boundary containment -->
   <div class="body" style="padding-bottom: 33px; min-height: 0;">
-    <!-- UPGRADE: Added min-height: 0 -->
     <div class="main" style="padding: 20px; gap: 15px; display: flex; flex-direction: column; min-height: 0;">
-      <div class="dg" style="grid-template-columns: repeat(3, 1fr); flex-shrink: 0;">
-        <button id="btn-feature" class="btn btn-g active">1. 🚀 Start Feature</button>
-        <button id="btn-commit" class="btn active">2. 📝 Quick Commit</button>
-        <button id="btn-revert" class="btn btn-d" disabled>3. ⏪ Hard Reset</button>
-        <button id="btn-merge" class="btn btn-g" disabled>4. 🔀 Merge to Main</button>
-        <button id="btn-history" class="btn active">5. 📜 View History</button>
-        <button id="btn-viewer" class="btn btn-g active">6. 📂 View Repo</button>
+
+      <!-- UPGRADE: Taller grid rows -->
+      <div class="dg" style="grid-template-columns: repeat(3, 1fr); grid-auto-rows: 60px; flex-shrink: 0; gap: 12px;">
+        <button id="btn-feature" class="btn btn-g active main-btn">1. 🚀 Start Feature</button>
+        <button id="btn-commit" class="btn active main-btn">2. 📝 Quick Commit</button>
+        <button id="btn-revert" class="btn btn-d main-btn" disabled>3. ⏪ Hard Reset</button>
+        <button id="btn-merge" class="btn btn-g main-btn" disabled>4. 🔀 Merge to Main</button>
+        <button id="btn-history" class="btn active main-btn">5. 📜 View History</button>
+
+        <!-- UPGRADE: The Drop Menu Wrapper (dmw) -->
+        <div class="dmw" style="height: 100%; width: 100%;">
+          <button id="btn-actions-toggle" class="btn btn-g active main-btn">6. ⚡ Actions ▾</button>
+          <!-- Menu opens upwards (bottom: calc(100% + 5px)) -->
+          <div id="actions-menu" class="dm"
+            style="bottom: calc(100% + 5px); top: auto; right: 0; left: 0; box-shadow: 0 -8px 28px rgba(0,0,0,0.55);">
+            <div class="dms">
+              <div class="dmi" id="action-view-repo">📂 View Repository</div>
+              <div class="dmi" id="action-sync-android">📱 Sync Android</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- UPGRADE: Added min-height: 0 -->
-      <div class="rcard" style="flex-direction: column; flex: 1; min-height: 0; padding-bottom: 5px;">
+      <div class="spacer"></div> <!-- Pushes terminal to bottom -->
+
+      <!-- UPGRADE: Smaller, fixed-height terminal pane -->
+      <div class="rcard" style="flex-direction: column; height: 160px; flex-shrink: 0; padding-bottom: 5px;">
         <div class="rl" style="display:flex; justify-content:space-between; flex-shrink: 0;">
           <span>Terminal Output</span><span id="loading-spinner" class="ldot"
             style="display:none; background:var(--a4); box-shadow:0 0 10px var(--a4);"></span>
         </div>
-        <!-- UPGRADE: Set absolute positioning for the pre tag to guarantee overflow triggers -->
         <div style="position: relative; flex: 1; min-height: 0;">
           <pre id="output-console" class="csv-ta"
             style="position: absolute; inset: 0; margin:0; padding: 10px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; font-family:var(--fu); color:var(--a5); font-size: 11px; background: var(--hd); border: 1px solid var(--bd);">Awaiting repository selection...</pre>
         </div>
       </div>
+
     </div>
   </div>
 
@@ -239,8 +329,7 @@
         <div
           style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--bd);">
           <button type="button" id="btn-cancel-feature" class="btn btn-g">Cancel</button><button type="submit"
-            class="btn" style="color: #000;">🌿 Create Branch</button>
-        </div>
+            class="btn" style="color: #000;">🌿 Create Branch</button></div>
       </form>
     </div>
   </div>
@@ -275,8 +364,7 @@
         <div id="commit-form-buttons"
           style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--bd);">
           <button type="button" id="btn-cancel-modal" class="btn btn-g">Cancel</button><button type="submit" class="btn"
-            style="color: #000;">🚀 Ensure & Push</button>
-        </div>
+            style="color: #000;">🚀 Ensure & Push</button></div>
       </form>
       <div id="commit-progress-footer"
         style="display: none; flex-direction: column; gap: 10px; padding: 16px; background: var(--sf3); border-top: 1px solid var(--bd); border-radius: 0 0 9px 9px;">
@@ -305,6 +393,20 @@
           style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
       </div>
       <div id="viewer-list" style="flex: 1; overflow-y: auto; background: var(--hd); padding: 10px 0;"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY MODAL -->
+  <div id="history-modal" class="modal-overlay">
+    <div class="rcard modal-content"
+      style="flex-direction: column; padding: 0; height: 75vh; max-height: 650px; width: 600px;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">📜 Full Git History</span>
+        <button id="btn-close-history"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+      <div id="history-list" style="flex: 1; overflow-y: auto; background: var(--sf);"></div>
     </div>
   </div>
 
