@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Git</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="logo">
+      <div class="ldot"></div> Neon Git
+    </div>
+
+    <div class="spacer"></div>
+
+    <!-- UPGRADED: The Repo Dropdown -->
+    <div class="stat"
+      style="display: flex; align-items: center; gap: 5px; background: transparent; border: none; padding: 0;">
+      <em>Repo:</em>
+      <select id="repo-dropdown" class="mi"
+        style="margin-bottom: 0; padding: 2px 24px 2px 6px; min-height: 24px; font-size: 10px; width: auto; max-width: 200px; cursor: pointer;">
+        <option value="">-- None Selected --</option>
+      </select>
+    </div>
+
+    <div class="stat">
+      <em>Branch:</em> <span id="current-branch">--</span>
+    </div>
+
+    <button class="btn btn-g" id="btn-select-repo">📂 Add Repository</button>
+  </div>
+
+  <div class="body">
+    <div class="main" style="padding: 20px; gap: 15px; display: flex; flex-direction: column;">
+      <div class="dg" style="grid-template-columns: repeat(3, 1fr);">
+        <button id="btn-feature" class="btn btn-g" disabled>1. 🚀 Start Feature</button>
+        <button id="btn-commit" class="btn btn-g" disabled>2. 📝 Quick Commit</button>
+        <button id="btn-revert" class="btn btn-d" disabled>3. ⏪ Hard Reset</button>
+        <button id="btn-merge" class="btn btn-g" disabled>4. 🔀 Merge to Main</button>
+        <button id="btn-sync" class="btn btn-sc" disabled>5. 📱 Sync Android</button>
+        <button id="btn-history" class="btn" disabled>6. 📜 View History</button>
+      </div>
+
+      <div class="rcard" style="flex-direction: column; flex: 1;">
+        <div class="rl">Terminal Output</div>
+        <pre id="output-console" class="csv-ta"
+          style="flex:1; margin:0; overflow-y:auto; font-family:var(--fu); color:var(--a5);">Awaiting repository selection...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+
+</html>

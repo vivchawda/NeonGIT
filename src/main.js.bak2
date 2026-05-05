@@ -1,0 +1,19 @@
+const { invoke } = window.__TAURI__.tauri;
+
+let branchEl;
+
+async function fetchBranch() {
+  try {
+    // This calls the Rust function named "get_current_branch"
+    const branchName = await invoke("get_current_branch");
+    branchEl.textContent = `[${branchName}]`;
+  } catch (error) {
+    console.error("Failed to get branch:", error);
+    branchEl.textContent = "[Not a Git Repo / Error]";
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  branchEl = document.querySelector("#current-branch");
+  fetchBranch();
+});

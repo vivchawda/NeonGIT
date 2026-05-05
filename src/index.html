@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Git</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* Modal Styles safely isolated */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      width: 500px;
+      max-width: 95%;
+      background: #1e293b;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-radio-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .modal-radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      color: var(--a5, #94a3b8);
+      background: rgba(0, 0, 0, 0.2);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.2s;
+    }
+
+    .modal-radio-group label:has(input:checked) {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      color: #38bdf8;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">
+      <div class="ldot"></div> Neon Git
+    </div>
+    <div class="spacer"></div>
+    <div class="stat"
+      style="display: flex; align-items: center; gap: 5px; background: transparent; border: none; padding: 0;">
+      <em>Repo:</em>
+      <select id="repo-dropdown" class="mi"
+        style="margin-bottom: 0; padding: 2px 24px 2px 6px; min-height: 24px; font-size: 10px; width: auto; max-width: 200px; cursor: pointer;">
+        <option value="">-- None Selected --</option>
+      </select>
+    </div>
+    <div class="stat"><em>Branch:</em> <span id="current-branch">--</span></div>
+    <button class="btn btn-g" id="btn-select-repo">📂 Add Repository</button>
+  </div>
+
+  <!-- Main Workspace -->
+  <div class="body">
+    <div class="main" style="padding: 20px; gap: 15px; display: flex; flex-direction: column;">
+      <div class="dg" style="grid-template-columns: repeat(3, 1fr);">
+        <button id="btn-feature" class="btn btn-g" disabled>1. 🚀 Start Feature</button>
+
+        <!-- UPGRADED: Button #2 is now Active! -->
+        <button id="btn-commit" class="btn active">2. 📝 Quick Commit</button>
+
+        <button id="btn-revert" class="btn btn-d" disabled>3. ⏪ Hard Reset</button>
+        <button id="btn-merge" class="btn btn-g" disabled>4. 🔀 Merge to Main</button>
+        <button id="btn-sync" class="btn btn-sc" disabled>5. 📱 Sync Android</button>
+        <button id="btn-history" class="btn active">6. 📜 View History</button>
+      </div>
+
+      <div class="rcard" style="flex-direction: column; flex: 1;">
+        <div class="rl">Terminal Output</div>
+        <pre id="output-console" class="csv-ta"
+          style="flex:1; margin:0; overflow-y:auto; font-family:var(--fu); color:var(--a5);">Awaiting repository selection...</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- THE QUICK COMMIT MODAL -->
+  <div id="quick-commit-modal" class="modal-overlay">
+    <div class="rcard modal-content" style="flex-direction: column; padding: 0;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px;">
+        <span style="font-weight: bold; color: white;">📝 Quick Commit Workflow</span>
+        <button id="btn-close-modal" class="btn"
+          style="padding: 4px 10px; background: transparent; border: none; color: white; cursor: pointer;">✕</button>
+      </div>
+
+      <form id="quick-commit-form" style="display: flex; flex-direction: column; gap: 15px; padding: 20px;">
+        <div>
+          <label style="color: var(--a5, #94a3b8); font-size: 0.9em; font-weight: bold;">Commit Type</label>
+          <div class="modal-radio-group">
+            <label><input type="radio" name="commit-type" value="feat" style="display:none" checked> feat</label>
+            <label><input type="radio" name="commit-type" value="fix" style="display:none"> fix</label>
+            <label><input type="radio" name="commit-type" value="refactor" style="display:none"> refactor</label>
+            <label><input type="radio" name="commit-type" value="chore" style="display:none"> chore</label>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <label style="color: var(--a5, #94a3b8); font-size: 0.9em; font-weight: bold;">Commit Summary</label>
+          <input type="text" id="commit-summary" class="mi" required placeholder="e.g., added native dialog picker"
+            style="width: 100%; padding: 10px; box-sizing: border-box;">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <label style="color: var(--a5, #94a3b8); font-size: 0.9em; font-weight: bold;">Details (Optional)</label>
+          <textarea id="commit-details" class="mi" rows="3" placeholder="Explain the 'why' behind this change..."
+            style="width: 100%; resize: vertical; padding: 10px; box-sizing: border-box;"></textarea>
+        </div>
+
+        <div
+          style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
+          <button type="button" id="btn-cancel-modal" class="btn"
+            style="background: transparent; border: 1px solid rgba(255,255,255,0.1);">Cancel</button>
+          <button type="submit" class="btn btn-g"
+            style="background: #38bdf8; color: #000; border: none; font-weight: bold;">🚀 Ensure & Push</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+
+</html>

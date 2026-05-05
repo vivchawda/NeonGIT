@@ -1,0 +1,45 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use std::process::Command;
+
+#[tauri::command]
+fn get_current_branch() -> Result<String, String> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()
+        .map_err(|e| format!("Failed to execute process: {}", e))?;
+
+    if output.status.success() {
+        let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(branch)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(error)
+    }
+}
+
+// NEW: Matches choice [6] in python script
+#[tauri::command]
+fn view_history() -> Result<String, String> {
+    let output = Command::new("git")
+        .args(["log", "-n", "5", "--oneline", "--decorate"])
+        .output()
+        .map_err(|e| format!("Failed to execute process: {}", e))?;
+
+    if output.status.success() {
+        let history = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(history)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(error)
+    }
+}
+
+fn main() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        // Register ALL exposed functions here
+        .invoke_handler(tauri::generate_handler![get_current_branch, view_history])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

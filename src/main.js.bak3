@@ -1,0 +1,20 @@
+// We securely import the IPC bridge from the Tauri API package
+import { invoke } from "@tauri-apps/api/tauri";
+
+let branchEl;
+
+async function fetchBranch() {
+  try {
+    const branchName = await invoke("get_current_branch");
+    branchEl.textContent = `[${branchName}]`;
+  } catch (error) {
+    console.error("Failed to get branch:", error);
+    // If Git fails (e.g., no repo initialized), we catch the Rust error here
+    branchEl.textContent = "[Not a Git Repo / Error]";
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  branchEl = document.querySelector("#current-branch");
+  fetchBranch();
+});
