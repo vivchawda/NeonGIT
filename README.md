@@ -1,7 +1,32 @@
-# Tauri + Vanilla
+# 🤖 Neon GIT Manager
 
-This template should help get you started developing with Tauri in vanilla HTML, CSS and Javascript.
+**Neon GIT Manager** is a blazing-fast, lightweight desktop application built for macOS (Apple Silicon M1+). Powered by a Rust backend and a custom UI frontend, it serves as a hyper-efficient alternative to bulky electron-based Git GUIs.
 
-## Recommended IDE Setup
+It is specifically designed for modern web developers who need to move incredibly fast: creating branches, purging build cache files (`.bak`), committing, and pushing in a single click.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## ✨ Features
+
+* **🚀 Stateless Architecture:** Manage multiple Git repositories from a single unified interface. Instantly switch between local repositories using the native folder picker.
+* **⚡ Native Speed:** Built on Tauri v2. Uses the native macOS WebKit renderer and a Pure Rust execution engine for zero-latency operations.
+* **📝 The "Quick Commit" Engine:** A highly opinionated, single-click workflow that:
+  1. Recursively hunts down and purges all temporary build files (`*.bak*`) across the entire repository.
+  2. Stages all changes (`git add .`).
+  3. Formats your commit message (`feat:`, `fix:`, `chore:`, etc.).
+  4. Commits and pushes.
+  5. *Fallback:* If the push is rejected, it automatically executes a `git pull --rebase` and retries the push without crashing.
+* **📂 Native Repo Viewer:** A hierarchical, virtual file tree that instantly maps tracked files using `git ls-files`.
+* **🌿 Automated Branching:** Type "camera fixes", and the engine automatically generates and checks out `feat/camera-fixes`.
+
+## 🛠️ Tech Stack
+* **Engine:** Rust (`std::process::Command`, `std::fs`)
+* **Bridge:** Tauri v2 IPC Architecture
+* **Canvas:** Pure Vanilla HTML / CSS / JS (No Frameworks, No Bundlers)
+
+## 📦 Installation & Build
+
+Because this app utilizes pure Vanilla JavaScript, there is no heavy Node bundler required. 
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/neon-git.git
+   cd neon-git

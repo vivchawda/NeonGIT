@@ -4,16 +4,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Neon Git</title>
+  <title>Neon GIT Manager</title>
   <link rel="stylesheet" href="styles.css" />
   <style>
-    /* Modal Styles safely isolated */
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      inset: 0;
       background: rgba(15, 23, 42, 0.8);
       backdrop-filter: blur(4px);
       z-index: 1000;
@@ -27,124 +23,248 @@
     }
 
     .modal-content {
-      width: 500px;
+      width: 440px;
       max-width: 95%;
-      background: #1e293b;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      background: var(--sf2);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--bd2);
     }
 
-    .modal-radio-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
-
-    .modal-radio-group label {
+    .rg-label {
       display: flex;
       align-items: center;
       gap: 4px;
       cursor: pointer;
-      color: var(--a5, #94a3b8);
-      background: rgba(0, 0, 0, 0.2);
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--tm);
+      background: var(--sf3);
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--bd);
+      font-size: 11px;
       transition: all 0.2s;
     }
 
-    .modal-radio-group label:has(input:checked) {
-      border-color: #38bdf8;
-      background: rgba(56, 189, 248, 0.1);
-      color: #38bdf8;
+    .rg-label:has(input:checked) {
+      border-color: var(--a2);
+      background: rgba(71, 200, 255, 0.1);
+      color: var(--a2);
       font-weight: bold;
+    }
+
+    .file-item {
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--tm);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--fu);
+      border-bottom: 1px solid transparent;
+    }
+
+    .file-item:hover {
+      background: var(--sf3);
+      color: var(--tx);
+    }
+
+    .tree-folder {
+      cursor: pointer;
+      user-select: none;
+      font-weight: bold;
+      color: var(--tx);
+    }
+
+    .tree-folder::before {
+      content: '📁';
+      font-size: 12px;
+    }
+
+    .tree-folder.open::before {
+      content: '📂';
+      font-size: 12px;
+    }
+
+    .tree-file::before {
+      content: '📄';
+      font-size: 12px;
+      opacity: 0.5;
+    }
+
+    .tree-children {
+      display: none;
+      padding-left: 14px;
+      border-left: 1px dashed var(--bd);
+      margin-left: 11px;
+    }
+
+    .tree-children.open {
+      display: block;
     }
   </style>
 </head>
 
 <body>
-  <!-- Topbar -->
   <div class="topbar">
-    <div class="logo">
-      <div class="ldot"></div> Neon Git
+    <div class="logo" style="margin-right: 10px;">
+      <div class="ldot"></div> Neon GIT Manager
     </div>
+    <select id="repo-dropdown" class="mi"
+      style="margin-bottom: 0; padding: 2px 26px 2px 8px; min-height: 24px; font-size: 11px; width: auto; max-width: 200px;"></select>
+    <button class="ib" id="btn-select-repo" style="width: 24px; height: 24px; font-size: 14px; margin-left: 4px;"
+      title="Add Repository">+</button>
     <div class="spacer"></div>
     <div class="stat"
       style="display: flex; align-items: center; gap: 5px; background: transparent; border: none; padding: 0;">
-      <em>Repo:</em>
-      <select id="repo-dropdown" class="mi"
-        style="margin-bottom: 0; padding: 2px 24px 2px 6px; min-height: 24px; font-size: 10px; width: auto; max-width: 200px; cursor: pointer;">
-        <option value="">-- None Selected --</option>
+      <em>Branch:</em> <select id="branch-dropdown" class="mi"
+        style="margin-bottom: 0; padding: 2px 26px 2px 8px; min-height: 24px; font-size: 11px; width: auto; max-width: 180px; cursor: pointer;">
+        <option value="">--</option>
       </select>
     </div>
-    <div class="stat"><em>Branch:</em> <span id="current-branch">--</span></div>
-    <button class="btn btn-g" id="btn-select-repo">📂 Add Repository</button>
+    <!-- NEW: About Button -->
+    <button class="ib" id="btn-open-about" style="width: 24px; height: 24px; font-size: 12px; margin-left: 8px;"
+      title="About Neon GIT Manager">i</button>
   </div>
 
-  <!-- Main Workspace -->
-  <div class="body">
+  <div class="body" style="padding-bottom: 33px;">
     <div class="main" style="padding: 20px; gap: 15px; display: flex; flex-direction: column;">
       <div class="dg" style="grid-template-columns: repeat(3, 1fr);">
-        <button id="btn-feature" class="btn btn-g" disabled>1. 🚀 Start Feature</button>
-
-        <!-- UPGRADED: Button #2 is now Active! -->
+        <button id="btn-feature" class="btn btn-g active">1. 🚀 Start Feature</button>
         <button id="btn-commit" class="btn active">2. 📝 Quick Commit</button>
-
         <button id="btn-revert" class="btn btn-d" disabled>3. ⏪ Hard Reset</button>
         <button id="btn-merge" class="btn btn-g" disabled>4. 🔀 Merge to Main</button>
-        <button id="btn-sync" class="btn btn-sc" disabled>5. 📱 Sync Android</button>
-        <button id="btn-history" class="btn active">6. 📜 View History</button>
+        <button id="btn-history" class="btn active">5. 📜 View History</button>
+        <button id="btn-viewer" class="btn btn-g active">6. 📂 View Repo</button>
       </div>
 
       <div class="rcard" style="flex-direction: column; flex: 1;">
-        <div class="rl">Terminal Output</div>
+        <div class="rl" style="display:flex; justify-content:space-between;">
+          <span>Terminal Output</span><span id="loading-spinner" class="ldot"
+            style="display:none; background:var(--a4); box-shadow:0 0 10px var(--a4);"></span>
+        </div>
         <pre id="output-console" class="csv-ta"
-          style="flex:1; margin:0; overflow-y:auto; font-family:var(--fu); color:var(--a5);">Awaiting repository selection...</pre>
+          style="flex:1; margin:0; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; font-family:var(--fu); color:var(--a5); font-size: 11px;">Awaiting repository selection...</pre>
       </div>
     </div>
   </div>
 
-  <!-- THE QUICK COMMIT MODAL -->
+  <div class="sbar" style="position: fixed; bottom: 0; left: 0; right: 0;">
+    <div class="sb1" style="padding: 0 14px; align-items: center; color: var(--td); font-size: 10px; gap: 8px;">
+      <div id="footer-status-dot" style="width: 6px; height: 6px; border-radius: 50%; background: var(--td);"></div>
+      <span id="footer-status-text">System Idle</span>
+    </div>
+  </div>
+
+  <!-- ABOUT MODAL -->
+  <div id="about-modal" class="modal-overlay">
+    <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">ℹ️ About Neon GIT Manager</span><button
+          id="btn-close-about"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+      <div
+        style="padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;">
+        <div
+          style="font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: var(--ac); display: flex; align-items: center; gap: 8px;">
+          <div class="ldot" style="animation: none;"></div> Neon GIT Manager
+        </div>
+        <div style="color: var(--td); font-size: 11px;">Version 0.1.0 (M1 ARM64)</div>
+        <p style="color: var(--tm); font-size: 11px; line-height: 1.5; max-width: 280px; margin-top: 8px;">
+          A blazing-fast, Rust-powered Git automation tool built specifically for modern UI/UX workflows.
+        </p>
+        <div style="width: 100%; height: 1px; background: var(--bd); margin: 8px 0;"></div>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
+          <a href="https://github.com/YOUR_USERNAME/neon-git" target="_blank"
+            style="color: var(--a2); text-decoration: none;">GitHub Repository</a>
+          <a href="https://www.moodcompute.com/" target="_blank"
+            style="color: var(--a2); text-decoration: none;">www.moodcompute.com</a>
+          <a href="mailto:contact@moodcompute.com"
+            style="color: var(--a2); text-decoration: none;">contact@moodcompute.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- START FEATURE MODAL -->
+  <div id="feature-modal" class="modal-overlay">
+    <div class="rcard modal-content" style="flex-direction: column; padding: 0;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">🚀 Start New Feature</span><button
+          id="btn-close-feature"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+      <form id="feature-form" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Feature Name</label>
+          <input type="text" id="feature-name" class="mi" required placeholder="e.g., camera fixes"
+            style="width: 100%;">
+          <span style="font-size: 9px; color: var(--td);">Spaces will be converted to hyphens. "feat/" prefix is
+            optional.</span>
+        </div>
+        <div
+          style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--bd);">
+          <button type="button" id="btn-cancel-feature" class="btn btn-g">Cancel</button><button type="submit"
+            class="btn" style="color: #000;">🌿 Create Branch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- QUICK COMMIT MODAL -->
   <div id="quick-commit-modal" class="modal-overlay">
     <div class="rcard modal-content" style="flex-direction: column; padding: 0;">
       <div class="rl"
-        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px;">
-        <span style="font-weight: bold; color: white;">📝 Quick Commit Workflow</span>
-        <button id="btn-close-modal" class="btn"
-          style="padding: 4px 10px; background: transparent; border: none; color: white; cursor: pointer;">✕</button>
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">📝 Quick Commit Workflow</span><button
+          id="btn-close-modal"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
       </div>
-
-      <form id="quick-commit-form" style="display: flex; flex-direction: column; gap: 15px; padding: 20px;">
+      <form id="quick-commit-form" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
         <div>
-          <label style="color: var(--a5, #94a3b8); font-size: 0.9em; font-weight: bold;">Commit Type</label>
-          <div class="modal-radio-group">
-            <label><input type="radio" name="commit-type" value="feat" style="display:none" checked> feat</label>
-            <label><input type="radio" name="commit-type" value="fix" style="display:none"> fix</label>
-            <label><input type="radio" name="commit-type" value="refactor" style="display:none"> refactor</label>
-            <label><input type="radio" name="commit-type" value="chore" style="display:none"> chore</label>
+          <label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Commit Type</label>
+          <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+            <label class="rg-label"><input type="radio" name="commit-type" value="feat" style="display:none" checked>
+              feat</label>
+            <label class="rg-label"><input type="radio" name="commit-type" value="fix" style="display:none"> fix</label>
+            <label class="rg-label"><input type="radio" name="commit-type" value="ui" style="display:none"> ui</label>
+            <label class="rg-label"><input type="radio" name="commit-type" value="refactor" style="display:none">
+              refactor</label>
+            <label class="rg-label"><input type="radio" name="commit-type" value="chore" style="display:none">
+              chore</label>
           </div>
         </div>
-
-        <div style="display: flex; flex-direction: column; gap: 5px;">
-          <label style="color: var(--a5, #94a3b8); font-size: 0.9em; font-weight: bold;">Commit Summary</label>
-          <input type="text" id="commit-summary" class="mi" required placeholder="e.g., added native dialog picker"
-            style="width: 100%; padding: 10px; box-sizing: border-box;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Commit Summary</label><input
+            type="text" id="commit-summary" class="mi" required placeholder="e.g., added native dialog picker"
+            style="width: 100%;">
         </div>
-
-        <div style="display: flex; flex-direction: column; gap: 5px;">
-          <label style="color: var(--a5, #94a3b8); font-size: 0.9em; font-weight: bold;">Details (Optional)</label>
-          <textarea id="commit-details" class="mi" rows="3" placeholder="Explain the 'why' behind this change..."
-            style="width: 100%; resize: vertical; padding: 10px; box-sizing: border-box;"></textarea>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Details
+            (Optional)</label><textarea id="commit-details" class="csv-ta" rows="2"
+            placeholder="Explain the 'why' behind this change..." style="width: 100%; min-height: 50px;"></textarea>
         </div>
-
         <div
-          style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
-          <button type="button" id="btn-cancel-modal" class="btn"
-            style="background: transparent; border: 1px solid rgba(255,255,255,0.1);">Cancel</button>
-          <button type="submit" class="btn btn-g"
-            style="background: #38bdf8; color: #000; border: none; font-weight: bold;">🚀 Ensure & Push</button>
+          style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--bd);">
+          <button type="button" id="btn-cancel-modal" class="btn btn-g">Cancel</button><button type="submit" class="btn"
+            style="color: #000;">🚀 Ensure & Push</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- REPO VIEWER MODAL -->
+  <div id="viewer-modal" class="modal-overlay">
+    <div class="rcard modal-content"
+      style="flex-direction: column; padding: 0; height: 75vh; max-height: 650px; width: 600px;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">📂 Repository Tree</span><button
+          id="btn-close-viewer"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+      <div id="viewer-list" style="flex: 1; overflow-y: auto; background: var(--hd); padding: 10px 0;"></div>
     </div>
   </div>
 

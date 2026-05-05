@@ -16,6 +16,21 @@ fn get_current_branch(repo_path: String) -> Result<String, String> {
     }
 }
 
+// NEW COMMAND: Switch Git Branch
+#[tauri::command]
+fn switch_branch(repo_path: String, branch_name: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["checkout", &branch_name])
+        .output()
+        .map_err(|e| format!("Failed to execute checkout: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stderr).trim().to_string()) // git checkout prints success to stderr
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+
 #[tauri::command]
 fn view_history(repo_path: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -30,7 +45,17 @@ fn view_history(repo_path: String) -> Result<String, String> {
     }
 }
 
-// NEW: GATEKEEPER - Checks if git has modified files
+// NEW COMMAND: Native macOS Folder Viewer
+#[tauri::command]
+fn open_folder(repo_path: String) -> Result<(), String> {
+    // "open" is the native macOS command to open Finder
+    Command::new("open")
+        .arg(&repo_path)
+        .spawn()
+        .map_err(|e| format!("Failed to open folder: {}", e))?;
+    Ok(())
+}
+
 #[tauri::command]
 fn check_git_status(repo_path: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -45,9 +70,22 @@ fn check_git_status(repo_path: String) -> Result<String, String> {
     }
 }
 
-// NEW: THE ENGINE - Add, Commit, Push, (fallback: Pull Rebase)
 #[tauri::command]
 fn perform_quick_commit(repo_path: String, message: String) -> Result<String, String> {
+    let mut log = String::new();
+
+    // 0. UPGRADE: Purge .bak files (Mimicking python: rm -f *.bak static/*.bak ...)
+    // Using native sh command to find and delete all .bak files safely in the repo
+    let purge_cmd = Command::new("sh")
+        .current_dir(&repo_path)
+        .arg("-c")
+        .arg("find . -name '*.bak' -type f -delete")
+        .output();
+
+    if purge_cmd.is_ok() {
+        log.push_str("🧹 System Purged all temporary .bak files.\n");
+    }
+
     // 1. git add .
     let add_output = Command::new("git")
         .current_dir(&repo_path)
@@ -64,7 +102,8 @@ fn perform_quick_commit(repo_path: String, message: String) -> Result<String, St
         .args(["commit", "-m", &message])
         .output()
         .map_err(|e| format!("Failed to run git commit: {}", e))?;
-    let mut log = String::from_utf8_lossy(&commit_output.stdout).into_owned();
+
+    log.push_str(&String::from_utf8_lossy(&commit_output.stdout).into_owned());
 
     // 3. git push
     let push_output = Command::new("git")
@@ -75,10 +114,9 @@ fn perform_quick_commit(repo_path: String, message: String) -> Result<String, St
 
     if push_output.status.success() {
         log.push_str("\n\n-- Push Successful --\n");
-        log.push_str(&String::from_utf8_lossy(&push_output.stderr)); // git push outputs to stderr even on success
+        log.push_str(&String::from_utf8_lossy(&push_output.stderr));
         Ok(log)
     } else {
-        // Push failed! Replicate python fallback logic: Attempt pull --rebase
         log.push_str("\n\n-- Push Rejected! Attempting 'pull --rebase'... --\n");
         let pull_output = Command::new("git")
             .current_dir(&repo_path)
@@ -94,7 +132,6 @@ fn perform_quick_commit(repo_path: String, message: String) -> Result<String, St
 
         log.push_str("\n-- Pull Rebase Successful. Retrying Push... --\n");
 
-        // Retry push
         let push2_output = Command::new("git")
             .current_dir(&repo_path)
             .args(["push"])
@@ -118,7 +155,9 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_current_branch,
+            switch_branch,
             view_history,
+            open_folder,
             check_git_status,
             perform_quick_commit
         ])
