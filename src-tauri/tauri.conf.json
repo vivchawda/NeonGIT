@@ -21,6 +21,7 @@
     "active": true,
     "targets": [
       "app",
+      "dmg",
       "nsis"
     ],
     "icon": [
@@ -32,6 +33,6 @@
     ]
   },
   "productName": "Neon GIT Manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.vivekchawda.neon-git"
 }

@@ -39,3 +39,5 @@ jobs:
           releaseBody: 'Automated release build.'
           releaseDraft: false
           prerelease: false
+          # UPGRADE: Force clean filenames based on the OS
+          args: ${{ matrix.platform == 'macos-latest' && '--target aarch64-apple-darwin --bundles dmg' || '--bundles nsis' }}

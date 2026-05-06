@@ -40,6 +40,7 @@ fn get_current_branch(repo_path: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
 #[tauri::command]
 fn get_branches(repo_path: String) -> Result<Vec<String>, String> {
     let output = Command::new("git")
@@ -59,6 +60,7 @@ fn get_branches(repo_path: String) -> Result<Vec<String>, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
 #[tauri::command]
 fn switch_branch(repo_path: String, branch_name: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -72,6 +74,7 @@ fn switch_branch(repo_path: String, branch_name: String) -> Result<String, Strin
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
 #[tauri::command]
 fn start_feature(repo_path: String, branch_name: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -85,6 +88,7 @@ fn start_feature(repo_path: String, branch_name: String) -> Result<String, Strin
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
 #[tauri::command]
 fn view_history(repo_path: String) -> Result<String, String> {
     let format_str = "--pretty=format:[==COMMIT==]%H|--|%h|--|%an|--|%ad|--|%ar|--|%s|--|%b";
@@ -99,6 +103,7 @@ fn view_history(repo_path: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
 #[tauri::command]
 fn get_repo_files(repo_path: String) -> Result<Vec<String>, String> {
     let output = Command::new("git")
@@ -118,6 +123,7 @@ fn get_repo_files(repo_path: String) -> Result<Vec<String>, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
 #[tauri::command]
 fn sync_android(repo_path: String) -> Result<String, String> {
     let output = Command::new("sh")
@@ -132,6 +138,7 @@ fn sync_android(repo_path: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).into_owned())
     }
 }
+
 #[tauri::command]
 fn check_git_status(repo_path: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -145,6 +152,8 @@ fn check_git_status(repo_path: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
+// NEW: Hard Reset
 #[tauri::command]
 fn hard_reset(repo_path: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -158,6 +167,8 @@ fn hard_reset(repo_path: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
+// NEW: Delete Branch
 #[tauri::command]
 fn delete_branch(repo_path: String, branch_name: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -171,6 +182,8 @@ fn delete_branch(repo_path: String, branch_name: String) -> Result<String, Strin
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
+// NEW: Perform Merge (Dynamic main/master detection + streaming)
 #[tauri::command]
 fn perform_merge(
     window: tauri::Window,
@@ -178,6 +191,7 @@ fn perform_merge(
     feature_branch: String,
 ) -> Result<String, String> {
     let mut log = String::new();
+
     let _ = window.emit("merge-progress", "🔍 Detecting primary branch...");
     let branch_output = Command::new("git")
         .current_dir(&repo_path)
@@ -190,6 +204,7 @@ fn perform_merge(
     } else {
         "master"
     };
+
     let _ = window.emit(
         "merge-progress",
         format!("🔄 Switching to {}...", target_branch),
@@ -203,6 +218,7 @@ fn perform_merge(
         return Err(String::from_utf8_lossy(&checkout_res.stderr).to_string());
     }
     log.push_str(&format!("Switched to {}\n", target_branch));
+
     let _ = window.emit(
         "merge-progress",
         format!("⬇️ Pulling latest {} from origin...", target_branch),
@@ -216,6 +232,7 @@ fn perform_merge(
         return Err(String::from_utf8_lossy(&pull_res.stderr).to_string());
     }
     log.push_str("Pulled latest changes.\n");
+
     let _ = window.emit(
         "merge-progress",
         format!("🔀 Merging {}...", feature_branch),
@@ -232,6 +249,7 @@ fn perform_merge(
         ));
     }
     log.push_str(&String::from_utf8_lossy(&merge_res.stdout));
+
     let _ = window.emit("merge-progress", "🚀 Pushing merge to origin...");
     let mut push_cmd = Command::new("git")
         .current_dir(&repo_path)
@@ -253,6 +271,7 @@ fn perform_merge(
         Err("Push failed after merge.".into())
     }
 }
+
 #[tauri::command]
 fn perform_quick_commit(
     window: tauri::Window,
@@ -268,6 +287,7 @@ fn perform_quick_commit(
             deleted_count
         ));
     }
+
     let _ = window.emit("commit-progress", "📦 Staging files (git add .)...");
     let add_output = Command::new("git")
         .current_dir(&repo_path)
@@ -277,6 +297,7 @@ fn perform_quick_commit(
     if !add_output.status.success() {
         return Err(String::from_utf8_lossy(&add_output.stderr).to_string());
     }
+
     let _ = window.emit("commit-progress", "📝 Writing commit message...");
     let commit_output = Command::new("git")
         .current_dir(&repo_path)
@@ -284,6 +305,7 @@ fn perform_quick_commit(
         .output()
         .map_err(|e| format!("Failed commit: {}", e))?;
     log.push_str(&String::from_utf8_lossy(&commit_output.stdout).into_owned());
+
     let _ = window.emit("commit-progress", "🚀 Pushing to remote origin...");
     let mut push_cmd = Command::new("git")
         .current_dir(&repo_path)
@@ -348,7 +370,6 @@ fn perform_quick_commit(
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init()) // UPGRADE: Register Opener Plugin
         .invoke_handler(tauri::generate_handler![
             get_current_branch,
             get_branches,
