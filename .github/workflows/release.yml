@@ -1,7 +1,11 @@
 name: Build and Release Tauri App
 
 on:
-  workflow_dispatch: # Allows you to manually trigger the build from GitHub UI
+  workflow_dispatch:
+
+# UPGRADE: Explicitly grant write permissions to the GITHUB_TOKEN
+permissions:
+  contents: write
 
 jobs:
   release:
