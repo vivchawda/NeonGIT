@@ -139,7 +139,6 @@
       border-radius: 3px;
     }
 
-    /* UPGRADE: Main Grid Button Sizing */
     .main-btn {
       height: 100%;
       width: 100%;
@@ -147,7 +146,6 @@
       justify-content: center;
     }
 
-    /* UPGRADE: Expandable Commit Cards */
     .commit-card {
       padding: 12px 16px;
       border-bottom: 1px solid var(--bd);
@@ -211,9 +209,11 @@
 
 <body>
   <div class="topbar">
+    <!-- RESTORED: Clean Logo without MoodCompute text -->
     <div class="logo" style="margin-right: 10px;">
       <div class="ldot"></div> Neon GIT Manager
     </div>
+
     <select id="repo-dropdown" class="mi"
       style="margin-bottom: 0; padding: 2px 26px 2px 8px; min-height: 24px; font-size: 11px; width: auto; max-width: 200px;"></select>
     <button class="ib" id="btn-select-repo" style="width: 24px; height: 24px; font-size: 14px; margin-left: 4px;"
@@ -232,19 +232,14 @@
 
   <div class="body" style="padding-bottom: 33px; min-height: 0;">
     <div class="main" style="padding: 20px; gap: 15px; display: flex; flex-direction: column; min-height: 0;">
-
-      <!-- UPGRADE: Taller grid rows -->
       <div class="dg" style="grid-template-columns: repeat(3, 1fr); grid-auto-rows: 60px; flex-shrink: 0; gap: 12px;">
         <button id="btn-feature" class="btn btn-g active main-btn">1. 🚀 Start Feature</button>
         <button id="btn-commit" class="btn active main-btn">2. 📝 Quick Commit</button>
-        <button id="btn-revert" class="btn btn-d main-btn" disabled>3. ⏪ Hard Reset</button>
-        <button id="btn-merge" class="btn btn-g main-btn" disabled>4. 🔀 Merge to Main</button>
-        <button id="btn-history" class="btn active main-btn">5. 📜 View History</button>
-
-        <!-- UPGRADE: The Drop Menu Wrapper (dmw) -->
+        <button id="btn-revert" class="btn btn-d active main-btn">3. ⏪ Hard Reset</button>
+        <button id="btn-merge" class="btn btn-g active main-btn">4. 🔀 Merge to Main</button>
+        <button id="btn-history" class="btn btn-g active main-btn">5. 📜 View History</button>
         <div class="dmw" style="height: 100%; width: 100%;">
           <button id="btn-actions-toggle" class="btn btn-g active main-btn">6. ⚡ Actions ▾</button>
-          <!-- Menu opens upwards (bottom: calc(100% + 5px)) -->
           <div id="actions-menu" class="dm"
             style="bottom: calc(100% + 5px); top: auto; right: 0; left: 0; box-shadow: 0 -8px 28px rgba(0,0,0,0.55);">
             <div class="dms">
@@ -255,9 +250,7 @@
         </div>
       </div>
 
-      <div class="spacer"></div> <!-- Pushes terminal to bottom -->
-
-      <!-- UPGRADE: Smaller, fixed-height terminal pane -->
+      <div class="spacer"></div>
       <div class="rcard" style="flex-direction: column; height: 160px; flex-shrink: 0; padding-bottom: 5px;">
         <div class="rl" style="display:flex; justify-content:space-between; flex-shrink: 0;">
           <span>Terminal Output</span><span id="loading-spinner" class="ldot"
@@ -268,7 +261,6 @@
             style="position: absolute; inset: 0; margin:0; padding: 10px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; font-family:var(--fu); color:var(--a5); font-size: 11px; background: var(--hd); border: 1px solid var(--bd);">Awaiting repository selection...</pre>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -285,19 +277,25 @@
     <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
       <div class="rl"
         style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
-        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">ℹ️ About Neon GIT Manager</span><button
-          id="btn-close-about"
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">ℹ️ About</span><button id="btn-close-about"
           style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
       </div>
       <div
         style="padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;">
-        <div
-          style="font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: var(--ac); display: flex; align-items: center; gap: 8px;">
-          <div class="ldot" style="animation: none;"></div> Neon GIT Manager
+
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <div
+            style="font-size: 9px; color: var(--td); text-transform: uppercase; letter-spacing: 2px; font-weight: bold; margin-bottom: 2px;">
+            MoodCompute</div>
+          <div
+            style="font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: var(--ac); display: flex; align-items: center; gap: 8px;">
+            <div class="ldot" style="animation: none;"></div> Neon GIT Manager
+          </div>
         </div>
+
         <div style="color: var(--td); font-size: 11px;">Version 0.1.0 (M1 ARM64)</div>
         <p style="color: var(--tm); font-size: 11px; line-height: 1.5; max-width: 280px; margin-top: 8px;">A
-          blazing-fast, Rust-powered Git automation tool built specifically for modern UI/UX workflows.</p>
+          blazing-fast, Rust-powered Git automation tool built specifically for one click workflows.</p>
         <div style="width: 100%; height: 1px; background: var(--bd); margin: 8px 0;"></div>
         <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
           <a href="https://github.com/YOUR_USERNAME/neon-git" target="_blank"
@@ -307,6 +305,12 @@
           <a href="mailto:contact@moodcompute.com"
             style="color: var(--a2); text-decoration: none;">contact@moodcompute.com</a>
         </div>
+
+        <div style="margin-top: 12px;">
+          <img src="ai-badge.png" alt="Careful AI Use"
+            style="width: 90px; height: auto; opacity: 0.85; filter: drop-shadow(0 4px 12px rgba(71, 200, 255, 0.1));">
+        </div>
+
       </div>
     </div>
   </div>
@@ -402,11 +406,76 @@
       style="flex-direction: column; padding: 0; height: 75vh; max-height: 650px; width: 600px;">
       <div class="rl"
         style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
-        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">📜 Full Git History</span>
-        <button id="btn-close-history"
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">📜 Full Git History</span><button
+          id="btn-close-history"
           style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
       </div>
       <div id="history-list" style="flex: 1; overflow-y: auto; background: var(--sf);"></div>
+    </div>
+  </div>
+
+  <!-- HARD RESET MODAL -->
+  <div id="reset-modal" class="modal-overlay">
+    <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span style="font-weight: bold; color: var(--a3); font-size: 11px;">⚠️ DANGER: Hard Reset</span><button
+          id="btn-close-reset"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+      <div style="padding: 16px;">
+        <p style="color: var(--tm); font-size: 11px; line-height: 1.5; margin-bottom: 12px;">This will permanently
+          destroy all uncommitted changes in your workspace. This action cannot be undone.</p>
+        <div style="display: flex; flex-direction: column; gap: 4px;"><label
+            style="color: var(--a3); font-size: 10px; font-weight: bold; text-transform: uppercase;">Type "nuke" to
+            confirm</label><input type="text" id="reset-input" class="mi" placeholder="nuke"
+            style="width: 100%; border-color: rgba(255, 107, 107, 0.3);"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;"><button type="button"
+            id="btn-cancel-reset" class="btn btn-g">Cancel</button><button type="button" id="btn-confirm-reset"
+            class="btn btn-d" disabled>💥 NUKE WORKSPACE</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MERGE MODAL -->
+  <div id="merge-modal" class="modal-overlay">
+    <div class="rcard modal-content" style="flex-direction: column; padding: 0;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">🔀 Merge to Main</span><button
+          id="btn-close-merge"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+      <div id="merge-screen-1" style="padding: 16px;">
+        <p style="color: var(--tm); font-size: 11px; line-height: 1.5; margin-bottom: 16px;">You are about to merge
+          <strong id="merge-source-branch" style="color: var(--a2);">--</strong> into the primary branch and push to
+          origin.</p>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;"><button type="button" id="btn-cancel-merge"
+            class="btn btn-g">Cancel</button><button type="button" id="btn-confirm-merge" class="btn">🔀 Execute
+            Merge</button></div>
+      </div>
+      <div id="merge-screen-progress"
+        style="display: none; flex-direction: column; gap: 10px; padding: 16px; background: var(--sf3); border-radius: 0 0 9px 9px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;"><span id="merge-progress-text"
+            style="font-size: 10px; color: var(--a2); font-family: var(--fu); max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Initializing
+            Merge...</span>
+          <div class="dbr" style="margin: 0; width: 100px; flex-shrink: 0;">
+            <div class="dbt" style="background: var(--bd2);">
+              <div id="merge-progress-bar" class="dbf dbf-anim" style="background: var(--a2);"></div>
+            </div>
+          </div>
+        </div><button type="button" id="btn-merge-error-close" class="btn btn-g"
+          style="display: none; align-self: flex-end; margin-top: 5px;">Close</button>
+      </div>
+      <div id="merge-screen-3" style="display: none; padding: 16px; background: rgba(74, 222, 128, 0.05);">
+        <p style="color: #4ade80; font-size: 11px; font-weight: bold; margin-bottom: 8px;">✅ Merge Successful!</p>
+        <p style="color: var(--tm); font-size: 11px; line-height: 1.5; margin-bottom: 16px;">Would you like to
+          forcefully delete the local branch <strong id="merge-delete-branch-name" style="color: var(--tx);">--</strong>
+          to keep your workspace clean?</p>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;"><button type="button" id="btn-keep-branch"
+            class="btn btn-g">Keep Branch</button><button type="button" id="btn-delete-branch" class="btn btn-d">🗑️
+            Delete Branch</button></div>
+      </div>
     </div>
   </div>
 
