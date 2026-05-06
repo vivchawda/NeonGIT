@@ -3,7 +3,6 @@ name: Build and Release Tauri App
 on:
   workflow_dispatch:
 
-# UPGRADE: Explicitly grant write permissions to the GITHUB_TOKEN
 permissions:
   contents: write
 
@@ -38,5 +37,5 @@ jobs:
           tagName: app-v__VERSION__
           releaseName: 'Neon GIT Manager v__VERSION__'
           releaseBody: 'Automated release build.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
