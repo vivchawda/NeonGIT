@@ -93,5 +93,7 @@ npm run tauri build
 
 ## 🤝 Contact
 Developed by **Viv Chawda @ MoodCompute**
+
 🌐 www.moodcompute.com
+
 ✉️ contact@moodcompute.com
