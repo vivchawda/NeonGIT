@@ -119,20 +119,6 @@ fn get_repo_files(repo_path: String) -> Result<Vec<String>, String> {
     }
 }
 #[tauri::command]
-fn sync_android(repo_path: String) -> Result<String, String> {
-    let output = Command::new("sh")
-        .current_dir(&repo_path)
-        .arg("-c")
-        .arg("npx cap sync android")
-        .output()
-        .map_err(|e| format!("Failed to spawn npx: {}", e))?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).into_owned())
-    }
-}
-#[tauri::command]
 fn check_git_status(repo_path: String) -> Result<String, String> {
     let output = Command::new("git")
         .current_dir(&repo_path)
@@ -171,6 +157,61 @@ fn delete_branch(repo_path: String, branch_name: String) -> Result<String, Strin
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+
+#[tauri::command]
+fn clean_and_stage(repo_path: String) -> Result<u32, String> {
+    let deleted_count = delete_bak_files(Path::new(&repo_path));
+    let add_output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["add", "."])
+        .output()
+        .map_err(|e| format!("Failed to run git add: {}", e))?;
+    if !add_output.status.success() {
+        return Err(String::from_utf8_lossy(&add_output.stderr).to_string());
+    }
+    Ok(deleted_count)
+}
+
+#[tauri::command]
+fn run_raw_command(repo_path: String, cmd_string: String) -> Result<String, String> {
+    let parts: Vec<&str> = cmd_string.split_whitespace().collect();
+    if parts.is_empty() {
+        return Err("Empty command".to_string());
+    }
+    let output = Command::new(parts[0])
+        .current_dir(&repo_path)
+        .args(&parts[1..])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let mut result = String::from_utf8_lossy(&output.stdout).into_owned();
+    if !output.status.success() {
+        result.push_str(&String::from_utf8_lossy(&output.stderr));
+        return Err(result);
+    }
+    Ok(result)
+}
+
+// UPGRADE 3: Universal Build Script
+#[tauri::command]
+fn run_build(repo_path: String) -> Result<String, String> {
+    let pkg_path = Path::new(&repo_path).join("package.json");
+    if !pkg_path.exists() {
+        return Err("No package.json found in this repository.".to_string());
+    }
+
+    let output = Command::new("npm")
+        .current_dir(&repo_path)
+        .args(["run", "build"])
+        .output()
+        .map_err(|e| format!("Failed to spawn npm: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+    }
+}
+
 #[tauri::command]
 fn perform_merge(
     window: tauri::Window,
@@ -348,7 +389,7 @@ fn perform_quick_commit(
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init()) // UPGRADE: Register Opener Plugin
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             get_current_branch,
             get_branches,
@@ -356,12 +397,14 @@ fn main() {
             start_feature,
             view_history,
             get_repo_files,
-            sync_android,
+            run_build,
             check_git_status,
             hard_reset,
             delete_branch,
             perform_merge,
-            perform_quick_commit
+            perform_quick_commit,
+            clean_and_stage,
+            run_raw_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

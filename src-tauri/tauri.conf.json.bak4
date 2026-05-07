@@ -9,12 +9,8 @@
     "windows": [
       {
         "title": "Neon GIT Manager",
-        "width": 860,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 800,
-        "maxWidth": 1200,
-        "maxHeight": 1000
+        "width": 800,
+        "height": 600
       }
     ],
     "security": {
@@ -25,6 +21,7 @@
     "active": true,
     "targets": [
       "app",
+      "dmg",
       "nsis"
     ],
     "icon": [

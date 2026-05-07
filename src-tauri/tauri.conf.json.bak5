@@ -10,9 +10,9 @@
       {
         "title": "Neon GIT Manager",
         "width": 860,
-        "height": 800,
+        "height": 700,
         "minWidth": 800,
-        "minHeight": 800,
+        "minHeight": 650,
         "maxWidth": 1200,
         "maxHeight": 1000
       }

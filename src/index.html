@@ -31,6 +31,30 @@
       transition: all 0.3s;
     }
 
+    /* UPGRADE 1: Standardized Spacing & Padding */
+    #command-pane {
+      max-height: 0px;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+      opacity: 0;
+    }
+
+    #command-pane.open {
+      max-height: 500px;
+      opacity: 1;
+    }
+
+    .pane-content {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--sf3);
+      border: 1px solid var(--bd2);
+      border-radius: 9px;
+      overflow: hidden;
+    }
+
     .rg-label {
       display: flex;
       align-items: center;
@@ -50,6 +74,44 @@
       background: rgba(71, 200, 255, 0.1);
       color: var(--a2);
       font-weight: bold;
+    }
+
+    /* UPGRADE 2: Precise Paste Icon Alignment */
+    .input-wrap {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-wrap .paste-icon {
+      position: absolute;
+      right: 10px;
+      cursor: pointer;
+      color: var(--tm);
+      font-size: 14px;
+      transition: color 0.2s;
+      z-index: 5;
+    }
+
+    .input-wrap .paste-icon:hover {
+      color: var(--a2);
+    }
+
+    .input-wrap.single-line .paste-icon {
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .input-wrap.multi-line .paste-icon {
+      top: 8px;
+    }
+
+    .input-wrap .mi,
+    .input-wrap .csv-ta {
+      padding-right: 32px !important;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .file-item {
@@ -205,21 +267,51 @@
       display: block;
     }
 
-    /* UPGRADE: Native App Feel (Disable global text selection) */
     body {
       -webkit-user-select: none;
       user-select: none;
       cursor: default;
     }
 
-    /* Re-enable text selection ONLY where the user needs to copy/paste data */
     input,
     textarea,
     #output-console,
     #history-list,
-    #viewer-list {
+    #viewer-list,
+    #custom-cmd-input {
       -webkit-user-select: auto;
       user-select: auto;
+    }
+
+    #terminal-input-form {
+      display: flex;
+      align-items: center;
+      background: var(--hd);
+      border-top: 1px solid var(--bd);
+      padding: 4px 10px;
+    }
+
+    #custom-cmd-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--a5);
+      font-family: var(--fu);
+      font-size: 11px;
+      outline: none;
+      padding: 6px 0;
+    }
+
+    #custom-cmd-input::placeholder {
+      color: var(--td);
+    }
+
+    .cmd-prefix {
+      color: var(--a2);
+      font-family: var(--fu);
+      font-size: 11px;
+      margin-right: 8px;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -229,10 +321,10 @@
     <div class="logo" style="margin-right: 10px;">
       <div class="ldot"></div> Neon GIT Manager
     </div>
-
     <select id="repo-dropdown" class="mi"
       style="margin-bottom: 0; padding: 2px 26px 2px 8px; min-height: 24px; font-size: 11px; width: auto; max-width: 200px;"></select>
-    <button class="ib" id="btn-select-repo" style="width: 24px; height: 24px; font-size: 14px; margin-left: 4px;"
+    <button class="ib" id="btn-select-repo"
+      style="width: 24px; height: 24px; font-size: 16px; margin-left: 4px; padding: 0; line-height: 0; padding-bottom: 2px;"
       title="Add Repository">+</button>
     <div class="spacer"></div>
     <div class="stat"
@@ -246,9 +338,12 @@
       title="About Neon GIT Manager">i</button>
   </div>
 
-  <div class="body" style="padding-bottom: 33px; min-height: 0;">
-    <div class="main" style="padding: 20px; gap: 15px; display: flex; flex-direction: column; min-height: 0;">
-      <div class="dg" style="grid-template-columns: repeat(3, 1fr); grid-auto-rows: 60px; flex-shrink: 0; gap: 12px;">
+  <div class="body" style="min-height: 0;">
+    <!-- UPGRADE 1: Set explicit 15px gap, removed .spacer for perfect vertical rhythm -->
+    <div class="main"
+      style="padding: 20px 20px 53px 20px; gap: 15px; display: flex; flex-direction: column; min-height: 0;">
+      <div class="dg"
+        style="grid-template-columns: repeat(3, 1fr); grid-auto-rows: 60px; flex-shrink: 0; gap: 12px; margin-bottom: 0;">
         <button id="btn-feature" class="btn btn-g active main-btn">1. 🚀 Start Feature</button>
         <button id="btn-commit" class="btn active main-btn">2. 📝 Quick Commit</button>
         <button id="btn-revert" class="btn btn-d active main-btn">3. ⏪ Hard Reset</button>
@@ -257,25 +352,35 @@
         <div class="dmw" style="height: 100%; width: 100%;">
           <button id="btn-actions-toggle" class="btn btn-g active main-btn">6. ⚡ Actions ▾</button>
           <div id="actions-menu" class="dm"
-            style="bottom: calc(100% + 5px); top: auto; right: 0; left: 0; box-shadow: 0 -8px 28px rgba(0,0,0,0.55);">
+            style="top: calc(100% + 5px); bottom: auto; right: 0; left: auto; box-shadow: 0 8px 28px rgba(0,0,0,0.55);">
             <div class="dms">
+              <div class="dmi" id="action-clean-stage">🧹 Clean & Stage</div>
               <div class="dmi" id="action-view-repo">📂 View Repository</div>
-              <div class="dmi" id="action-sync-android">📱 Sync Android</div>
+              <!-- UPGRADE 3: Universal Utility Build Command -->
+              <div class="dmi" id="action-run-build">📦 Run NPM Build</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="spacer"></div>
-      <div class="rcard" style="flex-direction: column; height: 160px; flex-shrink: 0; padding-bottom: 5px;">
-        <div class="rl" style="display:flex; justify-content:space-between; flex-shrink: 0;">
+      <!-- The Command Pane lives perfectly integrated in the flex gap -->
+      <div id="command-pane"></div>
+
+      <div class="rcard" style="flex-direction: column; flex-grow: 1; min-height: 160px; padding: 0; overflow: hidden;">
+        <div class="rl"
+          style="display:flex; justify-content:space-between; flex-shrink: 0; padding: 12px 16px; border-bottom: 1px solid var(--bd);">
           <span>Terminal Output</span><span id="loading-spinner" class="ldot"
             style="display:none; background:var(--a4); box-shadow:0 0 10px var(--a4);"></span>
         </div>
         <div style="position: relative; flex: 1; min-height: 0;">
-          <pre id="output-console" class="csv-ta"
-            style="position: absolute; inset: 0; margin:0; padding: 10px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; font-family:var(--fu); color:var(--a5); font-size: 11px; background: var(--hd); border: 1px solid var(--bd);">Awaiting repository selection...</pre>
+          <pre id="output-console"
+            style="position: absolute; inset: 0; margin:0; padding: 10px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; font-family:var(--fu); color:var(--a5); font-size: 11px; background: var(--hd);">Awaiting repository selection...</pre>
         </div>
+        <form id="terminal-input-form">
+          <span class="cmd-prefix">$</span>
+          <input type="text" id="custom-cmd-input"
+            placeholder="Type a raw git command (e.g. 'git status') and press Enter..." autocomplete="off">
+        </form>
       </div>
     </div>
   </div>
@@ -288,84 +393,28 @@
     </div>
   </div>
 
-  <!-- ABOUT MODAL -->
-  <div id="about-modal" class="modal-overlay">
-    <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
-      <div class="rl"
-        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
-        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">ℹ️ About</span><button id="btn-close-about"
-          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
-      </div>
-      <div
-        style="padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;">
-
-        <div style="display: flex; flex-direction: column; align-items: center;">
-          <div
-            style="font-size: 9px; color: var(--td); text-transform: uppercase; letter-spacing: 2px; font-weight: bold; margin-bottom: 2px;">
-            MoodCompute</div>
-          <div
-            style="font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: var(--ac); display: flex; align-items: center; gap: 8px;">
-            <div class="ldot" style="animation: none;"></div> Neon GIT Manager
-          </div>
-        </div>
-
-        <div style="color: var(--td); font-size: 11px;">Version 0.1.0 (M1 ARM64)</div>
-        <p style="color: var(--tm); font-size: 11px; line-height: 1.5; max-width: 280px; margin-top: 8px;">A
-          blazing-fast, Rust-powered Git automation tool built specifically for one click workflows.</p>
-        <div style="width: 100%; height: 1px; background: var(--bd); margin: 8px 0;"></div>
-        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
-          <a href="https://github.com/vivchawda/NeonGIT" target="_blank"
-            style="color: var(--a2); text-decoration: none;">GitHub Repository</a>
-          <a href="https://www.moodcompute.com/" target="_blank"
-            style="color: var(--a2); text-decoration: none;">www.moodcompute.com</a>
-          <a href="mailto:contact@moodcompute.com"
-            style="color: var(--a2); text-decoration: none;">contact@moodcompute.com</a>
-        </div>
-
-        <div style="margin-top: 12px;">
-          <img src="ai-badge.png" alt="Careful AI Use"
-            style="width: 90px; height: auto; opacity: 0.85; filter: drop-shadow(0 4px 12px rgba(71, 200, 255, 0.1));">
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- START FEATURE MODAL -->
-  <div id="feature-modal" class="modal-overlay">
-    <div class="rcard modal-content" style="flex-direction: column; padding: 0;">
-      <div class="rl"
-        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
-        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">🚀 Start New Feature</span><button
-          id="btn-close-feature"
-          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
-      </div>
+  <!-- Command Pane Templates -->
+  <template id="template-feature">
+    <div class="pane-content">
       <form id="feature-form" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
         <div style="display: flex; flex-direction: column; gap: 4px;"><label
-            style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Feature Name</label><input type="text"
-            id="feature-name" class="mi" required placeholder="e.g., camera fixes" style="width: 100%;"><span
-            style="font-size: 9px; color: var(--td);">Spaces will be converted to hyphens. "feat/" prefix is
-            optional.</span></div>
-        <div
-          style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--bd);">
-          <button type="button" id="btn-cancel-feature" class="btn btn-g">Cancel</button><button type="submit"
-            class="btn" style="color: #000;">🌿 Create Branch</button>
+            style="color: var(--tm); font-size: 10px; text-transform: uppercase;">🚀 Start New Feature Branch</label>
+          <div class="input-wrap single-line"><input type="text" id="feature-name" class="mi" required
+              placeholder="e.g., camera fixes" style="margin:0;"><span class="paste-icon"
+              data-target="feature-name">📋</span></div><span style="font-size: 9px; color: var(--td);">Spaces will be
+            converted to hyphens. "feat/" prefix is optional.</span>
         </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;"><button type="button"
+            class="btn-cancel-pane btn btn-g">Cancel</button><button type="submit" class="btn" style="color: #000;">🌿
+            Create Branch</button></div>
       </form>
     </div>
-  </div>
+  </template>
 
-  <!-- QUICK COMMIT MODAL -->
-  <div id="quick-commit-modal" class="modal-overlay">
-    <div class="rcard modal-content" style="flex-direction: column; padding: 0; transition: height 0.3s ease;">
-      <div class="rl"
-        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
-        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">📝 Quick Commit Workflow</span><button
-          id="btn-close-modal"
-          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
-      </div>
+  <template id="template-commit">
+    <div class="pane-content">
       <form id="quick-commit-form" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
-        <div><label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Commit Type</label>
+        <div><label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">📝 Quick Commit Type</label>
           <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;"><label class="rg-label"><input
                 type="radio" name="commit-type" value="feat" style="display:none" checked> feat</label><label
               class="rg-label"><input type="radio" name="commit-type" value="fix" style="display:none">
@@ -375,21 +424,24 @@
                 value="chore" style="display:none"> chore</label></div>
         </div>
         <div style="display: flex; flex-direction: column; gap: 4px;"><label
-            style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Commit Summary</label><input
-            type="text" id="commit-summary" class="mi" required placeholder="e.g., added native dialog picker"
-            style="width: 100%;"></div>
+            style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Commit Summary</label>
+          <div class="input-wrap single-line"><input type="text" id="commit-summary" class="mi" required
+              placeholder="e.g., added native dialog picker" style="margin:0;"><span class="paste-icon"
+              data-target="commit-summary">📋</span></div>
+        </div>
         <div style="display: flex; flex-direction: column; gap: 4px;"><label
-            style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Details (Optional)</label><textarea
-            id="commit-details" class="csv-ta" rows="2" placeholder="Explain the 'why' behind this change..."
-            style="width: 100%; min-height: 50px;"></textarea></div>
-        <div id="commit-form-buttons"
-          style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--bd);">
-          <button type="button" id="btn-cancel-modal" class="btn btn-g">Cancel</button><button type="submit" class="btn"
+            style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Details (Optional)</label>
+          <div class="input-wrap multi-line"><textarea id="commit-details" class="csv-ta" rows="2"
+              placeholder="Explain the 'why' behind this change..." style="min-height: 50px; margin:0;"></textarea><span
+              class="paste-icon" data-target="commit-details">📋</span></div>
+        </div>
+        <div id="commit-form-buttons" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+          <button type="button" class="btn-cancel-pane btn btn-g">Cancel</button><button type="submit" class="btn"
             style="color: #000;">🚀 Ensure & Push</button>
         </div>
       </form>
       <div id="commit-progress-footer"
-        style="display: none; flex-direction: column; gap: 10px; padding: 16px; background: var(--sf3); border-top: 1px solid var(--bd); border-radius: 0 0 9px 9px;">
+        style="display: none; flex-direction: column; gap: 10px; padding: 16px; background: var(--hd); border-top: 1px solid var(--bd);">
         <div style="display: flex; justify-content: space-between; align-items: center;"><span id="commit-progress-text"
             style="font-size: 10px; color: var(--a2); font-family: var(--fu); max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Initializing
             Engine...</span>
@@ -402,9 +454,60 @@
           style="display: none; align-self: flex-end; margin-top: 5px;">Close</button>
       </div>
     </div>
-  </div>
+  </template>
 
-  <!-- REPO VIEWER MODAL -->
+  <!-- MODALS -->
+  <div id="confirm-modal" class="modal-overlay" style="z-index: 2000;">
+    <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span id="confirm-title" style="font-weight: bold; color: var(--a3); font-size: 11px;">⚠️ Confirm</span><button
+          id="btn-close-confirm"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+      <div style="padding: 16px;">
+        <p id="confirm-message" style="color: var(--tm); font-size: 11px; line-height: 1.5; margin-bottom: 16px;">Are
+          you sure?</p>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;"><button type="button" id="btn-cancel-confirm"
+            class="btn btn-g">Cancel</button><button type="button" id="btn-confirm-action"
+            class="btn btn-d">Confirm</button></div>
+      </div>
+    </div>
+  </div>
+  <div id="about-modal" class="modal-overlay">
+    <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
+      <div class="rl"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bd); padding: 12px 16px;">
+        <span style="font-weight: bold; color: var(--tx); font-size: 11px;">ℹ️ About</span><button id="btn-close-about"
+          style="background: transparent; border: none; color: var(--td); cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+      <div
+        style="padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;">
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <div
+            style="font-size: 9px; color: var(--td); text-transform: uppercase; letter-spacing: 2px; font-weight: bold; margin-bottom: 2px;">
+            MoodCompute</div>
+          <div
+            style="font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: var(--ac); display: flex; align-items: center; gap: 8px;">
+            <div class="ldot" style="animation: none;"></div> Neon GIT Manager
+          </div>
+        </div>
+        <div style="color: var(--td); font-size: 11px;">Version 0.1.0 (M1 ARM64)</div>
+        <p style="color: var(--tm); font-size: 11px; line-height: 1.5; max-width: 280px; margin-top: 8px;">A
+          blazing-fast, Rust-powered Git automation tool built specifically for one click workflows.</p>
+        <div style="width: 100%; height: 1px; background: var(--bd); margin: 8px 0;"></div>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;"><a
+            href="https://github.com/vivchawda/NeonGIT" target="_blank"
+            style="color: var(--a2); text-decoration: none;">GitHub Repository</a><a href="https://www.moodcompute.com/"
+            target="_blank" style="color: var(--a2); text-decoration: none;">www.moodcompute.com</a><a
+            href="mailto:contact@moodcompute.com"
+            style="color: var(--a2); text-decoration: none;">contact@moodcompute.com</a></div>
+        <div style="margin-top: 12px;"><img src="ai-badge.png" alt="Careful AI Use"
+            style="width: 90px; height: auto; opacity: 0.85; filter: drop-shadow(0 4px 12px rgba(71, 200, 255, 0.1));">
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="viewer-modal" class="modal-overlay">
     <div class="rcard modal-content"
       style="flex-direction: column; padding: 0; height: 75vh; max-height: 650px; width: 600px;">
@@ -417,8 +520,6 @@
       <div id="viewer-list" style="flex: 1; overflow-y: auto; background: var(--hd); padding: 10px 0;"></div>
     </div>
   </div>
-
-  <!-- HISTORY MODAL -->
   <div id="history-modal" class="modal-overlay">
     <div class="rcard modal-content"
       style="flex-direction: column; padding: 0; height: 75vh; max-height: 650px; width: 600px;">
@@ -431,8 +532,6 @@
       <div id="history-list" style="flex: 1; overflow-y: auto; background: var(--sf);"></div>
     </div>
   </div>
-
-  <!-- HARD RESET MODAL -->
   <div id="reset-modal" class="modal-overlay">
     <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
       <div class="rl"
@@ -454,8 +553,6 @@
       </div>
     </div>
   </div>
-
-  <!-- MERGE MODAL -->
   <div id="merge-modal" class="modal-overlay">
     <div class="rcard modal-content" style="flex-direction: column; padding: 0;">
       <div class="rl"

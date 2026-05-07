@@ -172,11 +172,9 @@ fn delete_branch(repo_path: String, branch_name: String) -> Result<String, Strin
     }
 }
 
-// NEW: Atomic Clean & Stage
 #[tauri::command]
 fn clean_and_stage(repo_path: String) -> Result<u32, String> {
     let deleted_count = delete_bak_files(Path::new(&repo_path));
-
     let add_output = Command::new("git")
         .current_dir(&repo_path)
         .args(["add", "."])
@@ -185,8 +183,27 @@ fn clean_and_stage(repo_path: String) -> Result<u32, String> {
     if !add_output.status.success() {
         return Err(String::from_utf8_lossy(&add_output.stderr).to_string());
     }
-
     Ok(deleted_count)
+}
+
+// UPGRADE 3: Custom Raw Commands
+#[tauri::command]
+fn run_raw_command(repo_path: String, cmd_string: String) -> Result<String, String> {
+    let parts: Vec<&str> = cmd_string.split_whitespace().collect();
+    if parts.is_empty() {
+        return Err("Empty command".to_string());
+    }
+    let output = Command::new(parts[0])
+        .current_dir(&repo_path)
+        .args(&parts[1..])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let mut result = String::from_utf8_lossy(&output.stdout).into_owned();
+    if !output.status.success() {
+        result.push_str(&String::from_utf8_lossy(&output.stderr));
+        return Err(result);
+    }
+    Ok(result)
 }
 
 #[tauri::command]
@@ -380,7 +397,8 @@ fn main() {
             delete_branch,
             perform_merge,
             perform_quick_commit,
-            clean_and_stage
+            clean_and_stage,
+            run_raw_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
