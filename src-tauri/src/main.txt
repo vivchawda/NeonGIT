@@ -1,0 +1,368 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+use std::fs;
+use std::io::{BufRead, BufReader};
+use std::path::Path;
+use std::process::{Command, Stdio};
+use tauri::Emitter;
+
+fn delete_bak_files(dir: &Path) -> u32 {
+    let mut count = 0;
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let name = entry.file_name();
+                if name != ".git" && name != "node_modules" && name != "src-tauri" {
+                    count += delete_bak_files(&path);
+                }
+            } else if let Some(ext) = path.extension() {
+                if ext.to_string_lossy().starts_with("bak") {
+                    if fs::remove_file(&path).is_ok() {
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+    count
+}
+
+#[tauri::command]
+fn get_current_branch(repo_path: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn get_branches(repo_path: String) -> Result<Vec<String>, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["branch", "--format=%(refname:short)"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let branches = stdout
+            .lines()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        Ok(branches)
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn switch_branch(repo_path: String, branch_name: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["checkout", &branch_name])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn start_feature(repo_path: String, branch_name: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["checkout", "-b", &branch_name])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn view_history(repo_path: String) -> Result<String, String> {
+    let format_str = "--pretty=format:[==COMMIT==]%H|--|%h|--|%an|--|%ad|--|%ar|--|%s|--|%b";
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["log", format_str])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn get_repo_files(repo_path: String) -> Result<Vec<String>, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["ls-files"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let files = stdout
+            .lines()
+            .map(|s| s.to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        Ok(files)
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn sync_android(repo_path: String) -> Result<String, String> {
+    let output = Command::new("sh")
+        .current_dir(&repo_path)
+        .arg("-c")
+        .arg("npx cap sync android")
+        .output()
+        .map_err(|e| format!("Failed to spawn npx: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+    }
+}
+#[tauri::command]
+fn check_git_status(repo_path: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["status", "--porcelain"])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn hard_reset(repo_path: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["reset", "--hard", "HEAD"])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn delete_branch(repo_path: String, branch_name: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["branch", "-D", &branch_name])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn perform_merge(
+    window: tauri::Window,
+    repo_path: String,
+    feature_branch: String,
+) -> Result<String, String> {
+    let mut log = String::new();
+    let _ = window.emit("merge-progress", "🔍 Detecting primary branch...");
+    let branch_output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["branch"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let branches = String::from_utf8_lossy(&branch_output.stdout);
+    let target_branch = if branches.contains("main") {
+        "main"
+    } else {
+        "master"
+    };
+    let _ = window.emit(
+        "merge-progress",
+        format!("🔄 Switching to {}...", target_branch),
+    );
+    let checkout_res = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["checkout", target_branch])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !checkout_res.status.success() {
+        return Err(String::from_utf8_lossy(&checkout_res.stderr).to_string());
+    }
+    log.push_str(&format!("Switched to {}\n", target_branch));
+    let _ = window.emit(
+        "merge-progress",
+        format!("⬇️ Pulling latest {} from origin...", target_branch),
+    );
+    let pull_res = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["pull", "origin", target_branch])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !pull_res.status.success() {
+        return Err(String::from_utf8_lossy(&pull_res.stderr).to_string());
+    }
+    log.push_str("Pulled latest changes.\n");
+    let _ = window.emit(
+        "merge-progress",
+        format!("🔀 Merging {}...", feature_branch),
+    );
+    let merge_res = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["merge", &feature_branch])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !merge_res.status.success() {
+        return Err(format!(
+            "MERGE CONFLICT!\n{}",
+            String::from_utf8_lossy(&merge_res.stdout)
+        ));
+    }
+    log.push_str(&String::from_utf8_lossy(&merge_res.stdout));
+    let _ = window.emit("merge-progress", "🚀 Pushing merge to origin...");
+    let mut push_cmd = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["push", "origin", target_branch])
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    if let Some(stderr) = push_cmd.stderr.take() {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines().flatten() {
+            let _ = window.emit("merge-progress", format!("Pushing: {}", line));
+            log.push_str(&format!("{}\n", line));
+        }
+    }
+    let push_status = push_cmd.wait().map_err(|e| e.to_string())?;
+    if push_status.success() {
+        Ok(log)
+    } else {
+        Err("Push failed after merge.".into())
+    }
+}
+#[tauri::command]
+fn perform_quick_commit(
+    window: tauri::Window,
+    repo_path: String,
+    message: String,
+) -> Result<String, String> {
+    let mut log = String::new();
+    let _ = window.emit("commit-progress", "🧹 Scanning for .bak* files...");
+    let deleted_count = delete_bak_files(Path::new(&repo_path));
+    if deleted_count > 0 {
+        log.push_str(&format!(
+            "🧹 System recursively purged {} .bak* file(s).\n",
+            deleted_count
+        ));
+    }
+    let _ = window.emit("commit-progress", "📦 Staging files (git add .)...");
+    let add_output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["add", "."])
+        .output()
+        .map_err(|e| format!("Failed add: {}", e))?;
+    if !add_output.status.success() {
+        return Err(String::from_utf8_lossy(&add_output.stderr).to_string());
+    }
+    let _ = window.emit("commit-progress", "📝 Writing commit message...");
+    let commit_output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["commit", "-m", &message])
+        .output()
+        .map_err(|e| format!("Failed commit: {}", e))?;
+    log.push_str(&String::from_utf8_lossy(&commit_output.stdout).into_owned());
+    let _ = window.emit("commit-progress", "🚀 Pushing to remote origin...");
+    let mut push_cmd = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["push"])
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn git push: {}", e))?;
+    if let Some(stderr) = push_cmd.stderr.take() {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines().flatten() {
+            let _ = window.emit("commit-progress", format!("Pushing: {}", line));
+            log.push_str(&format!("{}\n", line));
+        }
+    }
+    let push_status = push_cmd.wait().map_err(|e| e.to_string())?;
+    if push_status.success() {
+        Ok(log)
+    } else {
+        let _ = window.emit(
+            "commit-progress",
+            "⚠️ Push Rejected! Attempting 'pull --rebase'...",
+        );
+        log.push_str("\n\n-- Push Rejected! Attempting 'pull --rebase'... --\n");
+        let pull_output = Command::new("git")
+            .current_dir(&repo_path)
+            .args(["pull", "--rebase"])
+            .output()
+            .map_err(|e| format!("Failed pull: {}", e))?;
+        if !pull_output.status.success() {
+            let _ = window.emit(
+                "commit-progress",
+                "❌ Pull Rebase Failed! Resolve in VS Code.",
+            );
+            log.push_str("\n\n[ CRITICAL ERROR ]: Pull Rebase Failed! Please resolve conflicts manually in VS Code.\n");
+            log.push_str(&String::from_utf8_lossy(&pull_output.stderr));
+            return Err(log);
+        }
+        let _ = window.emit("commit-progress", "🔄 Rebase Successful. Retrying Push...");
+        log.push_str("\n-- Pull Rebase Successful. Retrying Push... --\n");
+        let mut push2_cmd = Command::new("git")
+            .current_dir(&repo_path)
+            .args(["push"])
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        if let Some(stderr2) = push2_cmd.stderr.take() {
+            let reader2 = BufReader::new(stderr2);
+            for line in reader2.lines().flatten() {
+                let _ = window.emit("commit-progress", format!("Retry Push: {}", line));
+                log.push_str(&format!("{}\n", line));
+            }
+        }
+        let push2_status = push2_cmd.wait().map_err(|e| e.to_string())?;
+        if push2_status.success() {
+            Ok(log)
+        } else {
+            Err(log)
+        }
+    }
+}
+
+fn main() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init()) // UPGRADE: Register Opener Plugin
+        .invoke_handler(tauri::generate_handler![
+            get_current_branch,
+            get_branches,
+            switch_branch,
+            start_feature,
+            view_history,
+            get_repo_files,
+            sync_android,
+            check_git_status,
+            hard_reset,
+            delete_branch,
+            perform_merge,
+            perform_quick_commit
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
