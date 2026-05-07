@@ -3277,3 +3277,75 @@ select.mi {
     mask-image: linear-gradient(to right, #000 92%, transparent);
     -webkit-mask-image: linear-gradient(to right, #000 92%, transparent);
 }
+
+/* --- ULTIMATE ALIGNMENT & PASTE FIXES --- */
+
+/* Reset form margins that leak into flex gaps */
+#command-pane form {
+    margin: 0 !important;
+    padding: 16px !important;
+}
+
+/* The new structural approach to Paste Icons */
+.input-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--sf3);
+    border: 1px solid var(--bd2);
+    border-radius: 6px;
+    overflow: hidden;
+    /* Contains the children */
+    transition: border-color 0.2s;
+}
+
+.input-wrap:focus-within {
+    border-color: var(--ac);
+}
+
+/* The inputs now have NO border and sit NEXT TO the icon, not under it */
+.input-wrap .mi,
+.input-wrap .csv-ta {
+    border: none !important;
+    background: transparent !important;
+    flex-grow: 1;
+    margin: 0 !important;
+    outline: none !important;
+    padding-right: 8px !important;
+    /* Normal padding, no overlap needed */
+}
+
+/* The paste icon is now a structural flex child */
+.input-wrap .paste-icon {
+    position: static;
+    /* Removes absolute positioning */
+    background: transparent;
+    border: none;
+    color: var(--tm);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 10px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, background 0.2s;
+    border-left: 1px solid var(--bd);
+    /* Subtle separator */
+}
+
+.input-wrap .paste-icon:hover {
+    color: var(--a2);
+    background: var(--sf2);
+}
+
+/* Specific fix for the multi-line textarea alignment */
+.input-wrap.multi-line {
+    align-items: stretch;
+    /* Make children fill height */
+}
+
+.input-wrap.multi-line .paste-icon {
+    align-items: flex-start;
+    /* Push icon to top right */
+    padding-top: 8px;
+}

@@ -7,6 +7,7 @@
   <title>Neon GIT Manager</title>
   <link rel="stylesheet" href="styles.css" />
   <style>
+    /* MODALS & PANES */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -31,16 +32,14 @@
       transition: all 0.3s;
     }
 
-    /* UPGRADE 1: Standardized Spacing & Padding */
     #command-pane {
-      max-height: 0px;
-      overflow: hidden;
-      transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+      display: none;
       opacity: 0;
+      transition: opacity 0.2s ease-out;
     }
 
     #command-pane.open {
-      max-height: 500px;
+      display: block;
       opacity: 1;
     }
 
@@ -53,8 +52,22 @@
       border: 1px solid var(--bd2);
       border-radius: 9px;
       overflow: hidden;
+      animation: slideDown 0.3s ease-out forwards;
     }
 
+    @keyframes slideDown {
+      from {
+        transform: translateY(-10px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* UI ELEMENTS */
     .rg-label {
       display: flex;
       align-items: center;
@@ -76,7 +89,6 @@
       font-weight: bold;
     }
 
-    /* UPGRADE 2: Precise Paste Icon Alignment */
     .input-wrap {
       position: relative;
       width: 100%;
@@ -91,7 +103,10 @@
       color: var(--tm);
       font-size: 14px;
       transition: color 0.2s;
-      z-index: 5;
+      z-index: 10;
+      background: var(--sf3);
+      padding: 2px 4px;
+      border-radius: 4px;
     }
 
     .input-wrap .paste-icon:hover {
@@ -114,6 +129,7 @@
       box-sizing: border-box;
     }
 
+    /* TREE VIEW */
     .file-item {
       padding: 6px 10px;
       font-size: 11px;
@@ -164,6 +180,7 @@
       display: block;
     }
 
+    /* ANIMATION & MISC */
     @keyframes progress-slide {
       0% {
         transform: translateX(-100%);
@@ -208,6 +225,7 @@
       justify-content: center;
     }
 
+    /* HISTORY CARD */
     .commit-card {
       padding: 12px 16px;
       border-bottom: 1px solid var(--bd);
@@ -267,6 +285,7 @@
       display: block;
     }
 
+    /* NATIVE APP FEEL */
     body {
       -webkit-user-select: none;
       user-select: none;
@@ -283,6 +302,7 @@
       user-select: auto;
     }
 
+    /* TERMINAL INPUT */
     #terminal-input-form {
       display: flex;
       align-items: center;
@@ -317,7 +337,8 @@
 </head>
 
 <body>
-  <div class="topbar">
+  <!-- HEADER SECTION -->
+  <div class="topbar" style="padding: 0 20px;">
     <div class="logo" style="margin-right: 10px;">
       <div class="ldot"></div> Neon GIT Manager
     </div>
@@ -339,9 +360,9 @@
   </div>
 
   <div class="body" style="min-height: 0;">
-    <!-- UPGRADE 1: Set explicit 15px gap, removed .spacer for perfect vertical rhythm -->
     <div class="main"
       style="padding: 20px 20px 53px 20px; gap: 15px; display: flex; flex-direction: column; min-height: 0;">
+      <!-- MAIN GRID BUTTONS -->
       <div class="dg"
         style="grid-template-columns: repeat(3, 1fr); grid-auto-rows: 60px; flex-shrink: 0; gap: 12px; margin-bottom: 0;">
         <button id="btn-feature" class="btn btn-g active main-btn">1. 🚀 Start Feature</button>
@@ -356,16 +377,16 @@
             <div class="dms">
               <div class="dmi" id="action-clean-stage">🧹 Clean & Stage</div>
               <div class="dmi" id="action-view-repo">📂 View Repository</div>
-              <!-- UPGRADE 3: Universal Utility Build Command -->
               <div class="dmi" id="action-run-build">📦 Run NPM Build</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- The Command Pane lives perfectly integrated in the flex gap -->
+      <!-- IN-LINE COMMAND PANE -->
       <div id="command-pane"></div>
 
+      <!-- TERMINAL PANE -->
       <div class="rcard" style="flex-direction: column; flex-grow: 1; min-height: 160px; padding: 0; overflow: hidden;">
         <div class="rl"
           style="display:flex; justify-content:space-between; flex-shrink: 0; padding: 12px 16px; border-bottom: 1px solid var(--bd);">
@@ -373,8 +394,8 @@
             style="display:none; background:var(--a4); box-shadow:0 0 10px var(--a4);"></span>
         </div>
         <div style="position: relative; flex: 1; min-height: 0;">
-          <pre id="output-console"
-            style="position: absolute; inset: 0; margin:0; padding: 10px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; font-family:var(--fu); color:var(--a5); font-size: 11px; background: var(--hd);">Awaiting repository selection...</pre>
+          <pre id="output-console" class="csv-ta"
+            style="position: absolute; inset: 0; margin:0; padding: 10px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; font-family:var(--fu); color:var(--a5); font-size: 11px; background: var(--hd); border: none;">Awaiting repository selection...</pre>
         </div>
         <form id="terminal-input-form">
           <span class="cmd-prefix">$</span>
@@ -385,6 +406,7 @@
     </div>
   </div>
 
+  <!-- STATUS FOOTER -->
   <div class="sbar" style="position: fixed; bottom: 0; left: 0; right: 0; height: 33px;">
     <div class="sb1"
       style="padding: 0 14px; align-items: center; color: var(--td); font-size: 10px; gap: 8px; height: 100%;">
@@ -393,7 +415,10 @@
     </div>
   </div>
 
-  <!-- Command Pane Templates -->
+  <!-- =============================== -->
+  <!-- COMMAND PANE TEMPLATES SECTION  -->
+  <!-- =============================== -->
+
   <template id="template-feature">
     <div class="pane-content">
       <form id="feature-form" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
@@ -412,7 +437,7 @@
   </template>
 
   <template id="template-commit">
-    <div class="pane-content">
+    <div class="pane-content" id="commit-ui-wrapper">
       <form id="quick-commit-form" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
         <div><label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">📝 Quick Commit Type</label>
           <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;"><label class="rg-label"><input
@@ -456,7 +481,11 @@
     </div>
   </template>
 
-  <!-- MODALS -->
+  <!-- =============================== -->
+  <!-- FULL SCREEN MODALS SECTION      -->
+  <!-- =============================== -->
+
+  <!-- CONFIRM ACTION MODAL -->
   <div id="confirm-modal" class="modal-overlay" style="z-index: 2000;">
     <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
       <div class="rl"
@@ -474,6 +503,8 @@
       </div>
     </div>
   </div>
+
+  <!-- ABOUT MODAL -->
   <div id="about-modal" class="modal-overlay">
     <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
       <div class="rl"
@@ -492,7 +523,7 @@
             <div class="ldot" style="animation: none;"></div> Neon GIT Manager
           </div>
         </div>
-        <div style="color: var(--td); font-size: 11px;">Version 0.1.0 (M1 ARM64)</div>
+        <div style="color: var(--td); font-size: 11px;">Version 1.0.0 (M1 ARM64)</div>
         <p style="color: var(--tm); font-size: 11px; line-height: 1.5; max-width: 280px; margin-top: 8px;">A
           blazing-fast, Rust-powered Git automation tool built specifically for one click workflows.</p>
         <div style="width: 100%; height: 1px; background: var(--bd); margin: 8px 0;"></div>
@@ -508,6 +539,8 @@
       </div>
     </div>
   </div>
+
+  <!-- VIEWER MODAL -->
   <div id="viewer-modal" class="modal-overlay">
     <div class="rcard modal-content"
       style="flex-direction: column; padding: 0; height: 75vh; max-height: 650px; width: 600px;">
@@ -520,6 +553,8 @@
       <div id="viewer-list" style="flex: 1; overflow-y: auto; background: var(--hd); padding: 10px 0;"></div>
     </div>
   </div>
+
+  <!-- HISTORY MODAL -->
   <div id="history-modal" class="modal-overlay">
     <div class="rcard modal-content"
       style="flex-direction: column; padding: 0; height: 75vh; max-height: 650px; width: 600px;">
@@ -532,6 +567,8 @@
       <div id="history-list" style="flex: 1; overflow-y: auto; background: var(--sf);"></div>
     </div>
   </div>
+
+  <!-- HARD RESET MODAL -->
   <div id="reset-modal" class="modal-overlay">
     <div class="rcard modal-content" style="flex-direction: column; padding: 0; width: 380px;">
       <div class="rl"
@@ -553,6 +590,8 @@
       </div>
     </div>
   </div>
+
+  <!-- MERGE MODAL -->
   <div id="merge-modal" class="modal-overlay">
     <div class="rcard modal-content" style="flex-direction: column; padding: 0;">
       <div class="rl"

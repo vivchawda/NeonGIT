@@ -128,9 +128,10 @@ function openCommandPane(templateId, focusId, prefill = {}) {
 
 function closeCommandPane() {
   commandPane.classList.remove('open');
-  setTimeout(() => { commandPane.innerHTML = ''; activePane = null; }, 300);
+  setTimeout(() => { commandPane.innerHTML = ''; activePane = null; setUILocked(false); }, 300);
 }
 
+// RESTORED: Standard paste function without preventDefault
 async function pasteFromClipboard(targetId) {
   try { const text = await navigator.clipboard.readText(); commandPane.querySelector(`#${targetId}`).value = text; }
   catch (err) { printToConsole('Clipboard permission denied.'); }
@@ -243,14 +244,7 @@ async function openHistoryModal() { if (!activeRepo) return; setUILocked(true, "
 function buildTree(paths) { const root = {}; paths.forEach(path => { const parts = path.split('/'); let current = root; parts.forEach((part, i) => { if (!current[part]) { current[part] = (i === parts.length - 1) ? null : {}; } current = current[part]; }); }); return root; }
 function renderTreeHTML(node) { let html = ''; const entries = Object.entries(node).sort((a, b) => { if (a[1] !== null && b[1] === null) return -1; if (a[1] === null && b[1] !== null) return 1; return a[0].localeCompare(b[0]); }); for (const [name, children] of entries) { if (children === null) { html += `<div class="file-item tree-file"><span>${name}</span></div>`; } else { html += `<div><div class="file-item tree-folder" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open')"><span>${name}</span></div><div class="tree-children">${renderTreeHTML(children)}</div></div>`; } } return html; }
 async function openRepoViewer() { if (!activeRepo) return; actionsMenu.classList.remove("open"); setUILocked(true, "Building Folder Tree..."); try { const filesArray = await invoke("get_repo_files", { repoPath: activeRepo }); const fileTree = buildTree(filesArray); document.getElementById('viewer-list').innerHTML = renderTreeHTML(fileTree); viewerModal.classList.add("active"); printToConsole(`📂 Rendered tree for ${filesArray.length} tracked files.`); } catch (error) { printToConsole(`ERROR reading files:\n${error}`); } setUILocked(false); }
-
-// UPGRADE 3: Run Universal Build Script
-async function runBuildScript() {
-  if (!activeRepo) return; actionsMenu.classList.remove("open"); setUILocked(true, "Running NPM Build..."); printToConsole(`📦 Running "npm run build"...\nProcessing on engine...`);
-  try { const result = await invoke("run_build", { repoPath: activeRepo }); printToConsole(`✅ Build Complete:\n\n${result}`); }
-  catch (error) { printToConsole(`❌ Build Failed:\n\n${error}`); }
-  setUILocked(false);
-}
+async function runBuildScript() { if (!activeRepo) return; actionsMenu.classList.remove("open"); setUILocked(true, "Running NPM Build..."); printToConsole(`📦 Running "npm run build"...\nProcessing on engine...`); try { const result = await invoke("run_build", { repoPath: activeRepo }); printToConsole(`✅ Build Complete:\n\n${result}`); } catch (error) { printToConsole(`❌ Build Failed:\n\n${error}`); } setUILocked(false); }
 
 function openResetModal() { if (!activeRepo) return; resetModal.classList.add("active"); const resetInput = document.getElementById('reset-input'); const confirmResetBtn = document.getElementById('btn-confirm-reset'); resetInput.value = ""; confirmResetBtn.disabled = true; resetInput.focus(); resetInput.oninput = (e) => { confirmResetBtn.disabled = e.target.value !== "nuke"; }; document.getElementById('btn-close-reset').onclick = closeResetModal; document.getElementById('btn-cancel-reset').onclick = closeResetModal; confirmResetBtn.onclick = handleHardReset; }
 function closeResetModal() { resetModal.classList.remove("active"); }
