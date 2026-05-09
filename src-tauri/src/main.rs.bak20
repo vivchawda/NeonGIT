@@ -26,6 +26,7 @@ fn delete_bak_files(dir: &Path) -> u32 {
     }
     count
 }
+
 fn has_remote_origin(repo_path: &str) -> bool {
     if let Ok(output) = Command::new("git")
         .current_dir(repo_path)
@@ -61,6 +62,7 @@ fn init_repository(repo_path: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).into_owned())
     }
 }
+
 #[tauri::command]
 fn link_remote(repo_path: String, url: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -74,6 +76,7 @@ fn link_remote(repo_path: String, url: String) -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).into_owned())
     }
 }
+
 #[tauri::command]
 fn get_current_branch(repo_path: String) -> Result<String, String> {
     let output = Command::new("git")
@@ -131,6 +134,7 @@ fn start_feature(repo_path: String, branch_name: String) -> Result<String, Strin
         return Err(String::from_utf8_lossy(&checkout.stderr).into_owned());
     }
     log.push_str(&String::from_utf8_lossy(&checkout.stderr));
+
     if has_remote_origin(&repo_path) {
         let push = Command::new("git")
             .current_dir(&repo_path)
@@ -267,6 +271,20 @@ fn delete_branch(repo_path: String, branch_name: String) -> Result<String, Strin
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
+#[tauri::command]
+fn sync_android(repo_path: String) -> Result<String, String> {
+    let output = Command::new("sh")
+        .current_dir(&repo_path)
+        .arg("-c")
+        .arg("npx cap sync android")
+        .output()
+        .map_err(|e| format!("Failed to spawn npx: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+    }
+}
 
 #[tauri::command]
 fn perform_quick_commit(
@@ -283,6 +301,7 @@ fn perform_quick_commit(
             deleted_count
         ));
     }
+
     let _ = window.emit("commit-progress", "📦 Staging files (git add .)...");
     let add_output = Command::new("git")
         .current_dir(&repo_path)
@@ -292,6 +311,7 @@ fn perform_quick_commit(
     if !add_output.status.success() {
         return Err(String::from_utf8_lossy(&add_output.stderr).to_string());
     }
+
     let _ = window.emit("commit-progress", "📝 Writing commit message...");
     let commit_output = Command::new("git")
         .current_dir(&repo_path)
@@ -299,6 +319,7 @@ fn perform_quick_commit(
         .output()
         .map_err(|e| format!("Failed commit: {}", e))?;
     log.push_str(&String::from_utf8_lossy(&commit_output.stdout).into_owned());
+
     if !has_remote_origin(&repo_path) {
         let _ = window.emit(
             "commit-progress",
@@ -307,6 +328,7 @@ fn perform_quick_commit(
         log.push_str("\n\n-- Local Mode: Commit Successful. Link to GitHub to sync. --\n");
         return Ok(log);
     }
+
     let _ = window.emit("commit-progress", "🚀 Pushing to remote origin...");
     let mut push_cmd = Command::new("git")
         .current_dir(&repo_path)
@@ -366,6 +388,120 @@ fn perform_quick_commit(
             Err(log)
         }
     }
+}
+
+#[tauri::command]
+fn start_time_machine(repo_path: String, hash: String) -> Result<String, String> {
+    Command::new("git")
+        .current_dir(&repo_path)
+        .args(["branch", "-D", "neon-time-machine"])
+        .output()
+        .ok();
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["checkout", "-b", "neon-time-machine", &hash])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stderr).into_owned())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+    }
+}
+
+#[tauri::command]
+fn return_to_present(repo_path: String, original_branch: String) -> Result<String, String> {
+    let mut log = String::new();
+    let checkout = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["checkout", &original_branch])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !checkout.status.success() {
+        return Err(String::from_utf8_lossy(&checkout.stderr).into_owned());
+    }
+    log.push_str(&String::from_utf8_lossy(&checkout.stderr));
+    Command::new("git")
+        .current_dir(&repo_path)
+        .args(["branch", "-D", "neon-time-machine"])
+        .output()
+        .ok();
+    Ok(log)
+}
+
+#[tauri::command]
+fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, String> {
+    let mut log = String::new();
+    let hash_output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let target_hash = String::from_utf8_lossy(&hash_output.stdout)
+        .trim()
+        .to_string();
+    let checkout = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["checkout", &original_branch])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !checkout.status.success() {
+        return Err(String::from_utf8_lossy(&checkout.stderr).into_owned());
+    }
+    let head_output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let original_head = String::from_utf8_lossy(&head_output.stdout)
+        .trim()
+        .to_string();
+    let hard_reset = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["reset", "--hard", &target_hash])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !hard_reset.status.success() {
+        return Err(String::from_utf8_lossy(&hard_reset.stderr).into_owned());
+    }
+    let soft_reset = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["reset", "--soft", &original_head])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !soft_reset.status.success() {
+        return Err(String::from_utf8_lossy(&soft_reset.stderr).into_owned());
+    }
+    let msg = format!("chore: safe rollback to {}", &target_hash[0..7]);
+    let commit = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["commit", "-m", &msg])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !commit.status.success() {
+        log.push_str("Working tree is identical to target state. Nothing to commit.\n");
+    } else {
+        log.push_str(&String::from_utf8_lossy(&commit.stdout));
+    }
+    if has_remote_origin(&repo_path) {
+        let push = Command::new("git")
+            .current_dir(&repo_path)
+            .args(["push"])
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !push.status.success() {
+            return Err(String::from_utf8_lossy(&push.stderr).into_owned());
+        }
+        log.push_str("\nRollback pushed to cloud successfully.");
+    } else {
+        log.push_str("\nRollback committed locally.");
+    }
+    Command::new("git")
+        .current_dir(&repo_path)
+        .args(["branch", "-D", "neon-time-machine"])
+        .output()
+        .ok();
+    Ok(log)
 }
 
 #[tauri::command]
@@ -451,128 +587,6 @@ fn perform_merge(
     }
 }
 
-#[tauri::command]
-fn start_time_machine(repo_path: String, hash: String) -> Result<String, String> {
-    Command::new("git")
-        .current_dir(&repo_path)
-        .args(["branch", "-D", "neon-time-machine"])
-        .output()
-        .ok();
-    let output = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["checkout", "-b", "neon-time-machine", &hash])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stderr).into_owned())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).into_owned())
-    }
-}
-#[tauri::command]
-fn return_to_present(repo_path: String, original_branch: String) -> Result<String, String> {
-    let mut log = String::new();
-    let checkout = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["checkout", &original_branch])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !checkout.status.success() {
-        return Err(String::from_utf8_lossy(&checkout.stderr).into_owned());
-    }
-    log.push_str(&String::from_utf8_lossy(&checkout.stderr));
-    Command::new("git")
-        .current_dir(&repo_path)
-        .args(["branch", "-D", "neon-time-machine"])
-        .output()
-        .ok();
-    Ok(log)
-}
-
-// UPGRADE 3: Safe Rollback rewriten using pure Git Pointer Arithmetic (No pathspec errors)
-#[tauri::command]
-fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, String> {
-    let mut log = String::new();
-
-    let hash_output = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .map_err(|e| e.to_string())?;
-    let target_hash = String::from_utf8_lossy(&hash_output.stdout)
-        .trim()
-        .to_string();
-
-    let checkout = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["checkout", &original_branch])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !checkout.status.success() {
-        return Err(String::from_utf8_lossy(&checkout.stderr).into_owned());
-    }
-
-    let head_output = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .map_err(|e| e.to_string())?;
-    let original_head = String::from_utf8_lossy(&head_output.stdout)
-        .trim()
-        .to_string();
-
-    let hard_reset = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["reset", "--hard", &target_hash])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !hard_reset.status.success() {
-        return Err(String::from_utf8_lossy(&hard_reset.stderr).into_owned());
-    }
-
-    let soft_reset = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["reset", "--soft", &original_head])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !soft_reset.status.success() {
-        return Err(String::from_utf8_lossy(&soft_reset.stderr).into_owned());
-    }
-
-    let msg = format!("chore: safe rollback to {}", &target_hash[0..7]);
-    let commit = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["commit", "-m", &msg])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !commit.status.success() {
-        log.push_str("Working tree is identical to target state. Nothing to commit.\n");
-    } else {
-        log.push_str(&String::from_utf8_lossy(&commit.stdout));
-    }
-
-    if has_remote_origin(&repo_path) {
-        let push = Command::new("git")
-            .current_dir(&repo_path)
-            .args(["push"])
-            .output()
-            .map_err(|e| e.to_string())?;
-        if !push.status.success() {
-            return Err(String::from_utf8_lossy(&push.stderr).into_owned());
-        }
-        log.push_str("\nRollback pushed to cloud successfully.");
-    } else {
-        log.push_str("\nRollback committed locally.");
-    }
-
-    Command::new("git")
-        .current_dir(&repo_path)
-        .args(["branch", "-D", "neon-time-machine"])
-        .output()
-        .ok();
-    Ok(log)
-}
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -588,6 +602,7 @@ fn main() {
             get_repo_files,
             run_build,
             check_git_status,
+            sync_android,
             perform_quick_commit,
             clean_and_stage,
             run_raw_command,
