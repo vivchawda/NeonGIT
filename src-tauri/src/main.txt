@@ -26,6 +26,7 @@ fn delete_bak_files(dir: &Path) -> u32 {
     }
     count
 }
+
 fn has_remote_origin(repo_path: &str) -> bool {
     if let Ok(output) = Command::new("git")
         .current_dir(repo_path)
@@ -36,6 +37,21 @@ fn has_remote_origin(repo_path: &str) -> bool {
         stdout.contains("origin")
     } else {
         false
+    }
+}
+
+// UPGRADE 1: Get Remote URL for prefill
+#[tauri::command]
+fn get_remote_url(repo_path: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["config", "--get", "remote.origin.url"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Ok("".to_string())
     }
 }
 
@@ -242,33 +258,6 @@ fn run_build(repo_path: String) -> Result<String, String> {
     }
 }
 #[tauri::command]
-fn hard_reset(repo_path: String) -> Result<String, String> {
-    let output = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["reset", "--hard", "HEAD"])
-        .output()
-        .map_err(|e| format!("Failed: {}", e))?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
-    }
-}
-#[tauri::command]
-fn delete_branch(repo_path: String, branch_name: String) -> Result<String, String> {
-    let output = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["branch", "-D", &branch_name])
-        .output()
-        .map_err(|e| format!("Failed: {}", e))?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
-    }
-}
-
-#[tauri::command]
 fn perform_quick_commit(
     window: tauri::Window,
     repo_path: String,
@@ -369,89 +358,6 @@ fn perform_quick_commit(
 }
 
 #[tauri::command]
-fn perform_merge(
-    window: tauri::Window,
-    repo_path: String,
-    feature_branch: String,
-) -> Result<String, String> {
-    let mut log = String::new();
-    let _ = window.emit("merge-progress", "🔍 Detecting primary branch...");
-    let branch_output = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["branch"])
-        .output()
-        .map_err(|e| e.to_string())?;
-    let branches = String::from_utf8_lossy(&branch_output.stdout);
-    let target_branch = if branches.contains("main") {
-        "main"
-    } else {
-        "master"
-    };
-    let _ = window.emit(
-        "merge-progress",
-        format!("🔄 Switching to {}...", target_branch),
-    );
-    let checkout_res = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["checkout", target_branch])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !checkout_res.status.success() {
-        return Err(String::from_utf8_lossy(&checkout_res.stderr).to_string());
-    }
-    log.push_str(&format!("Switched to {}\n", target_branch));
-    let _ = window.emit(
-        "merge-progress",
-        format!("⬇️ Pulling latest {} from origin...", target_branch),
-    );
-    let pull_res = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["pull", "origin", target_branch])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !pull_res.status.success() {
-        return Err(String::from_utf8_lossy(&pull_res.stderr).to_string());
-    }
-    log.push_str("Pulled latest changes.\n");
-    let _ = window.emit(
-        "merge-progress",
-        format!("🔀 Merging {}...", feature_branch),
-    );
-    let merge_res = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["merge", &feature_branch])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !merge_res.status.success() {
-        return Err(format!(
-            "MERGE CONFLICT!\n{}",
-            String::from_utf8_lossy(&merge_res.stdout)
-        ));
-    }
-    log.push_str(&String::from_utf8_lossy(&merge_res.stdout));
-    let _ = window.emit("merge-progress", "🚀 Pushing merge to origin...");
-    let mut push_cmd = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["push", "origin", target_branch])
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| e.to_string())?;
-    if let Some(stderr) = push_cmd.stderr.take() {
-        let reader = BufReader::new(stderr);
-        for line in reader.lines().flatten() {
-            let _ = window.emit("merge-progress", format!("Pushing: {}", line));
-            log.push_str(&format!("{}\n", line));
-        }
-    }
-    let push_status = push_cmd.wait().map_err(|e| e.to_string())?;
-    if push_status.success() {
-        Ok(log)
-    } else {
-        Err("Push failed after merge.".into())
-    }
-}
-
-#[tauri::command]
 fn start_time_machine(repo_path: String, hash: String) -> Result<String, String> {
     Command::new("git")
         .current_dir(&repo_path)
@@ -489,11 +395,9 @@ fn return_to_present(repo_path: String, original_branch: String) -> Result<Strin
     Ok(log)
 }
 
-// UPGRADE 3: Safe Rollback rewriten using pure Git Pointer Arithmetic (No pathspec errors)
 #[tauri::command]
 fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, String> {
     let mut log = String::new();
-
     let hash_output = Command::new("git")
         .current_dir(&repo_path)
         .args(["rev-parse", "HEAD"])
@@ -502,7 +406,6 @@ fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, S
     let target_hash = String::from_utf8_lossy(&hash_output.stdout)
         .trim()
         .to_string();
-
     let checkout = Command::new("git")
         .current_dir(&repo_path)
         .args(["checkout", &original_branch])
@@ -511,7 +414,6 @@ fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, S
     if !checkout.status.success() {
         return Err(String::from_utf8_lossy(&checkout.stderr).into_owned());
     }
-
     let head_output = Command::new("git")
         .current_dir(&repo_path)
         .args(["rev-parse", "HEAD"])
@@ -520,7 +422,6 @@ fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, S
     let original_head = String::from_utf8_lossy(&head_output.stdout)
         .trim()
         .to_string();
-
     let hard_reset = Command::new("git")
         .current_dir(&repo_path)
         .args(["reset", "--hard", &target_hash])
@@ -529,7 +430,6 @@ fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, S
     if !hard_reset.status.success() {
         return Err(String::from_utf8_lossy(&hard_reset.stderr).into_owned());
     }
-
     let soft_reset = Command::new("git")
         .current_dir(&repo_path)
         .args(["reset", "--soft", &original_head])
@@ -538,7 +438,6 @@ fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, S
     if !soft_reset.status.success() {
         return Err(String::from_utf8_lossy(&soft_reset.stderr).into_owned());
     }
-
     let msg = format!("chore: safe rollback to {}", &target_hash[0..7]);
     let commit = Command::new("git")
         .current_dir(&repo_path)
@@ -550,7 +449,6 @@ fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, S
     } else {
         log.push_str(&String::from_utf8_lossy(&commit.stdout));
     }
-
     if has_remote_origin(&repo_path) {
         let push = Command::new("git")
             .current_dir(&repo_path)
@@ -564,13 +462,141 @@ fn safe_rollback(repo_path: String, original_branch: String) -> Result<String, S
     } else {
         log.push_str("\nRollback committed locally.");
     }
-
     Command::new("git")
         .current_dir(&repo_path)
         .args(["branch", "-D", "neon-time-machine"])
         .output()
         .ok();
     Ok(log)
+}
+
+// UPGRADE 2: Strict Exact Match Array Check for Merge target branch
+#[tauri::command]
+fn perform_merge(
+    window: tauri::Window,
+    repo_path: String,
+    feature_branch: String,
+) -> Result<String, String> {
+    let mut log = String::new();
+    let _ = window.emit("merge-progress", "🔍 Detecting primary branch...");
+
+    let branch_output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["branch", "--format=%(refname:short)"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let branches_str = String::from_utf8_lossy(&branch_output.stdout);
+    let branch_lines: Vec<&str> = branches_str.lines().map(|s| s.trim()).collect();
+
+    let target_branch = if branch_lines.contains(&"main") {
+        "main"
+    } else if branch_lines.contains(&"master") {
+        "master"
+    } else {
+        "main" // Final fallback, though highly unlikely to hit
+    };
+
+    let _ = window.emit(
+        "merge-progress",
+        format!("🔄 Switching to {}...", target_branch),
+    );
+    let checkout_res = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["checkout", target_branch])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !checkout_res.status.success() {
+        return Err(String::from_utf8_lossy(&checkout_res.stderr).to_string());
+    }
+    log.push_str(&format!("Switched to {}\n", target_branch));
+
+    if has_remote_origin(&repo_path) {
+        let _ = window.emit(
+            "merge-progress",
+            format!("⬇️ Pulling latest {} from origin...", target_branch),
+        );
+        let pull_res = Command::new("git")
+            .current_dir(&repo_path)
+            .args(["pull", "origin", target_branch])
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !pull_res.status.success() {
+            return Err(String::from_utf8_lossy(&pull_res.stderr).to_string());
+        }
+        log.push_str("Pulled latest changes.\n");
+    } else {
+        log.push_str("(Local mode: Skipping pull).\n");
+    }
+
+    let _ = window.emit(
+        "merge-progress",
+        format!("🔀 Merging {}...", feature_branch),
+    );
+    let merge_res = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["merge", &feature_branch])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !merge_res.status.success() {
+        return Err(format!(
+            "MERGE CONFLICT!\n{}",
+            String::from_utf8_lossy(&merge_res.stdout)
+        ));
+    }
+    log.push_str(&String::from_utf8_lossy(&merge_res.stdout));
+
+    if has_remote_origin(&repo_path) {
+        let _ = window.emit("merge-progress", "🚀 Pushing merge to origin...");
+        let mut push_cmd = Command::new("git")
+            .current_dir(&repo_path)
+            .args(["push", "origin", target_branch])
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        if let Some(stderr) = push_cmd.stderr.take() {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines().flatten() {
+                let _ = window.emit("merge-progress", format!("Pushing: {}", line));
+                log.push_str(&format!("{}\n", line));
+            }
+        }
+        let push_status = push_cmd.wait().map_err(|e| e.to_string())?;
+        if push_status.success() {
+            Ok(log)
+        } else {
+            Err("Push failed after merge.".into())
+        }
+    } else {
+        log.push_str("\n(Local mode: Merge Successful. Link to GitHub to sync).");
+        Ok(log)
+    }
+}
+
+#[tauri::command]
+fn hard_reset(repo_path: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["reset", "--hard", "HEAD"])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+#[tauri::command]
+fn delete_branch(repo_path: String, branch_name: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["branch", "-D", &branch_name])
+        .output()
+        .map_err(|e| format!("Failed: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
 }
 
 fn main() {
@@ -580,6 +606,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             init_repository,
             link_remote,
+            get_remote_url,
             get_current_branch,
             get_branches,
             switch_branch,
