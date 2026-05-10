@@ -40,6 +40,22 @@ fn has_remote_origin(repo_path: &str) -> bool {
     }
 }
 
+#[tauri::command]
+fn is_git_repository(repo_path: String) -> Result<bool, String> {
+    let output = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .map_err(|e| format!("Failed to validate repository: {}", e))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.trim() == "true")
+    } else {
+        Ok(false)
+    }
+}
+
 // UPGRADE 1: Get Remote URL for prefill
 #[tauri::command]
 fn get_remote_url(repo_path: String) -> Result<String, String> {
@@ -604,6 +620,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            is_git_repository,
             init_repository,
             link_remote,
             get_remote_url,

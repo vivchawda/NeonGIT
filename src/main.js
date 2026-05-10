@@ -76,7 +76,36 @@ async function updateUIState() {
   }
 }
 
-async function selectRepository() { try { const selectedPath = await open({ directory: true, multiple: false }); if (selectedPath) { if (!repoList.includes(selectedPath)) repoList.push(selectedPath); activeRepo = selectedPath; saveRepoData(); updateUIState(); } } catch (err) { printToConsole(`Failed to open dialog: ${err}`); } }
+async function sanitizeSavedRepos() {
+  const validRepos = [];
+  for (const repoPath of repoList) {
+    try {
+      const isGitRepo = await invoke("is_git_repository", { repoPath });
+      if (isGitRepo) validRepos.push(repoPath);
+    } catch (_) { }
+  }
+  repoList = validRepos;
+  if (activeRepo && !repoList.includes(activeRepo)) activeRepo = "";
+  saveRepoData();
+}
+
+async function selectRepository() {
+  try {
+    const selectedPath = await open({ directory: true, multiple: false });
+    if (!selectedPath) return;
+
+    const isGitRepo = await invoke("is_git_repository", { repoPath: selectedPath });
+    if (!isGitRepo) {
+      printToConsole("❌ Selected folder is not a Git repository. Use ✨ to initialize it first.");
+      return;
+    }
+
+    if (!repoList.includes(selectedPath)) repoList.push(selectedPath);
+    activeRepo = selectedPath;
+    saveRepoData();
+    updateUIState();
+  } catch (err) { printToConsole(`Failed to open dialog: ${err}`); }
+}
 
 //-- NEW FUNCTION START --//
 async function removeRepository() {
@@ -584,5 +613,5 @@ window.addEventListener("DOMContentLoaded", () => {
   if (closeAboutBtn) closeAboutBtn.onclick = () => { if (aboutModal) aboutModal.classList.remove('active'); };
 
   document.querySelectorAll('#about-modal a').forEach(a => { a.addEventListener('click', (e) => { e.preventDefault(); invoke('plugin:opener|open', { path: a.href }); }); });
-  updateUIState();
+  sanitizeSavedRepos().then(() => updateUIState());
 });
