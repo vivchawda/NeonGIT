@@ -13,7 +13,8 @@ let branchToDelete = "";
 let isTimeMachineMode = false;
 let timeMachineOriginalBranch = "";
 
-let mainTopbar, defaultControls, tmControls, tmReturnBtn, tmRevertBtn;
+//-- NEW VARIABLE --//
+let mainTopbar, defaultControls, tmControls, tmReturnBtn, tmRevertBtn, removeRepoBtn;
 let branchDropdownEl, repoDropdownEl, outputConsole, historyBtn, commitBtn, featureBtn, revertBtn, mergeBtn, actionsToggleBtn, actionsMenu, actionViewRepo, actionRunBuild, actionCleanStage, actionLinkRemote;
 let commandPane, paneInner, paneProgressFooter, paneProgressText, paneProgressBar, paneDoneBtn;
 let aboutModal, openAboutBtn, closeAboutBtn, viewerModal, closeViewerBtn, viewerList, historyModal, closeHistoryBtn, historyList;
@@ -41,6 +42,11 @@ function renderRepoDropdown() {
     const opt = document.createElement("option"); opt.value = repoPath; opt.textContent = repoPath.split('/').pop();
     if (repoPath === activeRepo) opt.selected = true; repoDropdownEl.appendChild(opt);
   });
+  //-- NEW LOGIC --//
+  // Disable the remove button if no repo is selected or the list is empty
+  if (removeRepoBtn) {
+    removeRepoBtn.disabled = !activeRepo;
+  }
 }
 
 async function updateUIState() {
@@ -62,12 +68,42 @@ async function updateUIState() {
     }
   } else {
     try { await appWindow.setTitle("Neon GIT Manager"); } catch (err) { }
+    //-- MODIFIED BLOCK --//
+    outputConsole.textContent = ''; // Clear console when no repo is active
     branchDropdownEl.innerHTML = '<option value="">--</option>';[historyBtn, commitBtn, featureBtn, actionsToggleBtn, revertBtn, mergeBtn].forEach(b => b.disabled = true);
     printToConsole("Please select or add a Git repository using the + button top right.");
+    //-- END MODIFIED BLOCK --//
   }
 }
 
 async function selectRepository() { try { const selectedPath = await open({ directory: true, multiple: false }); if (selectedPath) { if (!repoList.includes(selectedPath)) repoList.push(selectedPath); activeRepo = selectedPath; saveRepoData(); updateUIState(); } } catch (err) { printToConsole(`Failed to open dialog: ${err}`); } }
+
+//-- NEW FUNCTION START --//
+async function removeRepository() {
+  // Guard against no repository being selected.
+  if (!activeRepo) return;
+
+  const repoName = activeRepo.split('/').pop();
+  const title = `🗑️ Remove Repository?`;
+  // Important: Reassure the user their files are safe.
+  const message = `Are you sure you want to remove <strong>${repoName}</strong> from this list?<br><br>This action will <strong>not</strong> delete the actual repository folder from your computer.`;
+
+  const confirmed = await appConfirm(title, message, "Remove From List", "btn-d");
+  if (!confirmed) return;
+
+  // Filter the list to exclude the active repository.
+  repoList = repoList.filter(repo => repo !== activeRepo);
+  // Clear the active repository state.
+  activeRepo = "";
+
+  // Save the new state to localStorage.
+  saveRepoData();
+  // Trigger a full UI refresh.
+  updateUIState();
+
+  printToConsole(`✅ Successfully removed '${repoName}' from the list.`);
+}
+//-- NEW FUNCTION END --//
 
 async function initRepository() {
   try {
@@ -220,10 +256,7 @@ function wireUpCommandPaneListeners() {
 function openFeaturePane() { requestPaneSwitch('feature', 'feature-name'); }
 function openResetPane() { requestPaneSwitch('reset', 'pane-reset-input'); }
 
-//-- FIX START 1 of 3: The openMergePane function is completely replaced. --//
-// This new version correctly targets the #merge-modal instead of the command pane.
 function openMergePane() {
-  // Ensure a repo is active and we are not on a primary branch.
   if (!activeRepo) return;
   const currentBranch = branchDropdownEl.value;
   if (currentBranch === "main" || currentBranch === "master") {
@@ -234,20 +267,16 @@ function openMergePane() {
   const modal = document.getElementById('merge-modal');
   if (!modal) return;
 
-  // Reset modal to its initial state every time it's opened.
   modal.querySelector('#merge-screen-1').style.display = 'block';
   modal.querySelector('#merge-screen-progress').style.display = 'none';
   modal.querySelector('#merge-screen-3').style.display = 'none';
 
-  // Populate dynamic content (the branch name to be merged).
   branchToDelete = currentBranch;
   const sourceBranchEl = modal.querySelector('#merge-source-branch');
   if (sourceBranchEl) sourceBranchEl.textContent = currentBranch;
 
-  // This is critical: Wire up and clean up listeners for the modal's lifecycle.
   const cleanup = () => {
     modal.classList.remove('active');
-    // Remove listeners to prevent memory leaks or duplicate calls.
     modal.querySelector('#btn-cancel-merge').onclick = null;
     modal.querySelector('#btn-close-merge').onclick = null;
     modal.querySelector('#btn-confirm-merge').onclick = null;
@@ -257,13 +286,12 @@ function openMergePane() {
 
   modal.querySelector('#btn-cancel-merge').onclick = cleanup;
   modal.querySelector('#btn-close-merge').onclick = cleanup;
-  modal.querySelector('#btn-confirm-merge').onclick = handleMerge; // Points to our existing logic.
+  modal.querySelector('#btn-confirm-merge').onclick = handleMerge;
   modal.querySelector('#btn-keep-branch').onclick = cleanup;
-  modal.querySelector('#btn-delete-branch').onclick = handleDeleteBranch; // Points to our existing logic.
+  modal.querySelector('#btn-delete-branch').onclick = handleDeleteBranch;
 
-  modal.classList.add('active'); // Show the modal.
+  modal.classList.add('active');
 }
-//-- FIX END 1 of 3 --//
 
 async function openCommitPane(prefill = {}) {
   if (!activeRepo) return;
@@ -343,21 +371,16 @@ async function handleHardReset() {
   }
 }
 
-//-- FIX START 2 of 3: The handleMerge function is completely replaced. --//
-// This new version targets the modal's UI elements to show progress, success, and error states.
 async function handleMerge() {
-  // Target elements within the #merge-modal.
   const modal = document.getElementById('merge-modal');
   if (!modal) return;
 
-  // Get handles to all screens and progress elements within the modal.
   const screen1 = modal.querySelector('#merge-screen-1');
   const progressScreen = modal.querySelector('#merge-screen-progress');
   const successScreen = modal.querySelector('#merge-screen-3');
   const progressText = modal.querySelector('#merge-progress-text');
   const errorCloseBtn = modal.querySelector('#btn-merge-error-close');
 
-  // Switch from the confirmation screen to the progress screen.
   if (screen1) screen1.style.display = "none";
   if (progressScreen) progressScreen.style.display = 'flex';
   if (progressText) progressText.textContent = "Starting merge engine...";
@@ -372,28 +395,24 @@ async function handleMerge() {
   try {
     const result = await invoke("perform_merge", { repoPath: activeRepo, featureBranch: branchToDelete });
     printToConsole(`✅ MERGE COMPLETE\n\n${result}`);
-    // On success, hide progress and show the "delete branch?" screen.
     if (progressScreen) progressScreen.style.display = "none";
     if (successScreen) successScreen.style.display = "block";
     const delBranchNameEl = modal.querySelector('#merge-delete-branch-name');
     if (delBranchNameEl) delBranchNameEl.textContent = branchToDelete;
-    fetchBranches(); // Refresh branch list in the background.
-    setUILocked(false); // Unlock UI for the next step.
+    fetchBranches();
+    setUILocked(false);
   } catch (error) {
-    // On failure, update the progress text and show a close button.
     if (progressText) progressText.textContent = "❌ Merge Failed. See terminal output.";
     if (errorCloseBtn) {
       errorCloseBtn.style.display = 'block';
       errorCloseBtn.onclick = () => modal.classList.remove('active');
     }
     printToConsole(`\n[ CRITICAL MERGE FAILURE ]\n${error}`);
+    setUILocked(false);
   }
   unlisten();
 }
-//-- FIX END 2 of 3 --//
 
-//-- FIX START 3 of 3: The handleDeleteBranch function is replaced. --//
-// This new version ensures the modal is closed on success or error, instead of trying to close the command pane.
 async function handleDeleteBranch() {
   setUILocked(true, "Deleting branch...");
   printToConsole(`🗑️ Force deleting local branch '${branchToDelete}'...`);
@@ -402,16 +421,15 @@ async function handleDeleteBranch() {
     const result = await invoke("delete_branch", { repoPath: activeRepo, branchName: branchToDelete });
     printToConsole(`✅ Branch Deleted:\n${result}`);
     fetchBranches();
-    if (modal) modal.classList.remove('active'); // Correctly close the modal.
+    if (modal) modal.classList.remove('active');
     setUILocked(false);
   }
   catch (error) {
     printToConsole(`❌ Failed to delete branch:\n${error}`);
-    if (modal) modal.classList.remove('active'); // Also close modal on error.
+    if (modal) modal.classList.remove('active');
     setUILocked(false);
   }
 }
-//-- FIX END 3 of 3 --//
 
 async function openRemotePane() {
   if (actionsMenu) actionsMenu.classList.remove("open");
@@ -523,6 +541,8 @@ window.addEventListener("DOMContentLoaded", () => {
   actionsToggleBtn = document.querySelector("#btn-actions-toggle"); actionsMenu = document.querySelector("#actions-menu"); actionViewRepo = document.querySelector("#action-view-repo"); actionRunBuild = document.querySelector("#action-run-build"); actionCleanStage = document.querySelector("#action-clean-stage"); actionLinkRemote = document.querySelector("#action-link-remote");
   commandPane = document.querySelector("#command-pane"); paneInner = document.querySelector("#command-pane-inner"); paneProgressFooter = document.querySelector("#pane-progress-footer"); paneProgressText = document.querySelector("#pane-progress-text"); paneProgressBar = document.querySelector("#pane-progress-bar"); paneDoneBtn = document.querySelector("#btn-pane-done");
   terminalInputForm = document.querySelector("#terminal-input-form"); customCmdInput = document.querySelector("#custom-cmd-input");
+  //-- NEW SELECTOR --//
+  removeRepoBtn = document.querySelector("#btn-remove-repo");
 
   viewerModal = document.querySelector("#viewer-modal"); closeViewerBtn = document.querySelector("#btn-close-viewer"); viewerList = document.querySelector("#viewer-list");
   historyModal = document.querySelector("#history-modal"); closeHistoryBtn = document.querySelector("#btn-close-history"); historyList = document.querySelector("#history-list");
@@ -532,6 +552,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const btnInitRepo = document.querySelector("#btn-init-repo"); if (btnInitRepo) btnInitRepo.addEventListener("click", initRepository);
   const btnSelRepo = document.querySelector("#btn-select-repo"); if (btnSelRepo) btnSelRepo.addEventListener("click", selectRepository);
+  //-- NEW LISTENER --//
+  if (removeRepoBtn) removeRepoBtn.addEventListener("click", removeRepository);
 
   if (repoDropdownEl) repoDropdownEl.addEventListener("change", handleRepoSwitch);
   if (branchDropdownEl) branchDropdownEl.addEventListener("change", handleBranchSwitch);

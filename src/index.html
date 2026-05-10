@@ -325,6 +325,12 @@
         style="width: 24px; height: 24px; font-size: 12px; margin-left: 4px; padding: 0; box-sizing: border-box;"
         title="Initialize New Repository">✨</button>
 
+      <!-- NEW BUTTON START -->
+      <button class="ib btn-d" id="btn-remove-repo"
+        style="width: 24px; height: 24px; font-size: 16px; margin-left: 4px; padding: 0; line-height: 0; padding-bottom: 2px; box-sizing: border-box;"
+        title="Remove Selected Repository From List">–</button>
+      <!-- NEW BUTTON END -->
+
       <div class="spacer"></div>
       <div class="stat"
         style="display: flex; align-items: center; gap: 5px; background: transparent; border: none; padding: 0;">
@@ -471,7 +477,8 @@
         </div>
         <div id="commit-form-buttons" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
           <button type="button" class="btn-cancel-pane btn btn-g">Cancel</button><button type="submit" class="btn"
-            style="color: #000;">🚀 Ensure & Push</button></div>
+            style="color: #000;">🚀 Ensure & Push</button>
+        </div>
       </form>
     </div>
   </template>
@@ -604,7 +611,8 @@
       <div id="merge-screen-1" style="padding: 16px;">
         <p style="color: var(--tm); font-size: 11px; line-height: 1.5; margin-bottom: 16px;">You are about to merge
           <strong id="merge-source-branch" style="color: var(--a2);">--</strong> into the primary branch and push to
-          origin.</p>
+          origin.
+        </p>
         <div style="display: flex; justify-content: flex-end; gap: 8px;"><button type="button" id="btn-cancel-merge"
             class="btn btn-g">Cancel</button><button type="button" id="btn-confirm-merge" class="btn">🔀 Execute
             Merge</button></div>
