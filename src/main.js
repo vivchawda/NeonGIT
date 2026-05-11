@@ -246,8 +246,20 @@ function closeCommandPane() {
 
 async function pasteFromClipboard(e, targetId) {
   e.preventDefault(); e.stopPropagation();
-  try { const text = await navigator.clipboard.readText(); const el = paneInner.querySelector(`#${targetId}`); if (el) el.value = text; }
-  catch (err) { printToConsole('Clipboard permission denied.'); }
+  try {
+    // Prefer Tauri clipboard plugin to avoid browser/WebView paste permission prompts.
+    const text = await invoke("plugin:clipboard-manager|read_text");
+    const el = paneInner.querySelector(`#${targetId}`);
+    if (el) el.value = text || "";
+  } catch (_) {
+    try {
+      const text = await navigator.clipboard.readText();
+      const el = paneInner.querySelector(`#${targetId}`);
+      if (el) el.value = text || "";
+    } catch (err) {
+      printToConsole('Clipboard read failed.');
+    }
+  }
 }
 
 function wireUpCommandPaneListeners() {
