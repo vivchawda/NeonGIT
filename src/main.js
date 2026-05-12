@@ -587,18 +587,22 @@ async function openReleasePane() {
   if (!activeRepo) return;
   if (actionsMenu) actionsMenu.classList.remove("open");
 
-  setUILocked(true, "Fetching current version...");
+  setUILocked(true, "Fetching live repo version...");
   let currentVersion = "0.0.0";
   try {
-    currentVersion = await getVersion();
-  } catch (err) { printToConsole(`Warning: Could not fetch version - ${err}`); }
+    // Read the exact version directly from the active repo's package.json
+    const rawOutput = await invoke("run_raw_command", { repoPath: activeRepo, cmdString: "npm pkg get version" });
+    if (rawOutput) currentVersion = rawOutput.replace(/"/g, '').trim();
+  } catch (err) {
+    printToConsole(`Warning: Could not fetch version from package.json - ${err}`);
+  }
 
   requestPaneSwitch('release', 'release-version-input');
 
-  // Wait for pane animation, then inject version dynamically
+  // Wait for pane animation, then inject version dynamically into the visible pane
   setTimeout(() => {
-    const display = document.getElementById('current-version-display');
-    const input = document.getElementById('release-version-input');
+    const display = paneInner.querySelector('#current-version-display');
+    const input = paneInner.querySelector('#release-version-input');
     if (display) display.innerText = currentVersion;
     if (input) input.value = currentVersion;
     setUILocked(false);
@@ -606,8 +610,10 @@ async function openReleasePane() {
 }
 
 function calculateVersionBump(type) {
-  const display = document.getElementById('current-version-display');
+  // Query strictly within the active pane to avoid grabbing hidden template elements
+  const display = paneInner.querySelector('#current-version-display');
   if (!display) return;
+
   const currentVersion = display.innerText;
   let parts = currentVersion.replace('v', '').split('.').map(Number);
 
@@ -617,7 +623,7 @@ function calculateVersionBump(type) {
   if (type === 'minor') { parts[1] += 1; parts[2] = 0; }
   if (type === 'major') { parts[0] += 1; parts[1] = 0; parts[2] = 0; }
 
-  const input = document.getElementById('release-version-input');
+  const input = paneInner.querySelector('#release-version-input');
   if (input) input.value = parts.join('.');
 }
 
