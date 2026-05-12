@@ -616,13 +616,14 @@ fn delete_branch(repo_path: String, branch_name: String) -> Result<String, Strin
 }
 
 #[tauri::command]
-async fn cut_release(target_version: String) -> Result<String, String> {
+async fn cut_release(repo_path: String, target_version: String) -> Result<String, String> {
     let npm_cmd = if cfg!(target_os = "windows") {
         "npm.cmd"
     } else {
         "npm"
     };
     let version_output = std::process::Command::new(npm_cmd)
+        .current_dir(&repo_path)
         .args(["version", &target_version])
         .output()
         .map_err(|e| format!("Failed to execute npm version: {}", e))?;
@@ -634,6 +635,7 @@ async fn cut_release(target_version: String) -> Result<String, String> {
     let mut logs = String::from_utf8_lossy(&version_output.stdout).to_string();
 
     let push_output = std::process::Command::new("git")
+        .current_dir(&repo_path)
         .args(["push", "origin", "HEAD", "--follow-tags"])
         .output()
         .map_err(|e| format!("Failed to execute git push: {}", e))?;

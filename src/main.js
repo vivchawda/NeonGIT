@@ -637,15 +637,30 @@ async function executeRelease(e) {
     return;
   }
 
+  setUILocked(true, "Verifying workspace is clean...");
+  try {
+    const status = await invoke("check_git_status", { repoPath: activeRepo });
+    if (status) {
+      printToConsole(`❌ Release Cancelled: You have uncommitted changes.\nPlease use 'Quick Commit' first before cutting a release!\n\nUncommitted files:\n${status}`);
+      setUILocked(false);
+      return;
+    }
+  } catch (err) {
+    printToConsole(`❌ Error checking git status: ${err}`);
+    setUILocked(false);
+    return;
+  }
+
   const confirmed = await appConfirm("🚀 Cut Production Release?", `Are you sure you want to release version <strong>v${targetVersion}</strong>?<br><br>This will tag the repository and trigger the GitHub Action build pipeline.`, "Push & Build", "btn-d");
-  if (!confirmed) return;
+  if (!confirmed) { setUILocked(false); return; }
 
   closeCommandPane();
   setUILocked(true, `Tagging & Pushing v${targetVersion}...`);
   printToConsole(`$ npm version ${targetVersion} && git push origin HEAD --follow-tags...`);
 
   try {
-    const output = await invoke('cut_release', { targetVersion });
+    // FIX: Inject activeRepo so Rust executes in the correct directory
+    const output = await invoke('cut_release', { repoPath: activeRepo, targetVersion: targetVersion });
     printToConsole(output);
     printToConsole(`✅ Release v${targetVersion} successfully tagged and pushed!`);
     printToConsole(`⏳ GitHub Action is now building your app in the background.`);
