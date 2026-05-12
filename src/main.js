@@ -15,7 +15,7 @@ let timeMachineOriginalBranch = "";
 
 //-- NEW VARIABLE --//
 let mainTopbar, defaultControls, tmControls, tmReturnBtn, tmRevertBtn, removeRepoBtn;
-let branchDropdownEl, repoDropdownEl, outputConsole, historyBtn, commitBtn, featureBtn, revertBtn, mergeBtn, actionsToggleBtn, actionsMenu, actionViewRepo, actionRunBuild, actionCleanStage, actionLinkRemote;
+let branchDropdownEl, repoDropdownEl, outputConsole, historyBtn, commitBtn, featureBtn, revertBtn, mergeBtn, actionsToggleBtn, actionsMenu, actionViewRepo, actionRunBuild, actionCleanStage, actionLinkRemote, actionCutRelease;
 let commandPane, paneInner, paneProgressFooter, paneProgressText, paneProgressBar, paneDoneBtn;
 let aboutModal, openAboutBtn, closeAboutBtn, viewerModal, closeViewerBtn, viewerList, historyModal, closeHistoryBtn, historyList;
 let footerText, footerDot, loadingSpinner, terminalInputForm, customCmdInput;
@@ -267,6 +267,7 @@ function wireUpCommandPaneListeners() {
   const featureForm = paneInner.querySelector('#feature-form');
   const commitForm = paneInner.querySelector('#quick-commit-form');
   const remoteForm = paneInner.querySelector('#remote-form');
+  const releaseForm = paneInner.querySelector('#release-form');
   const resetBtn = paneInner.querySelector('#btn-pane-confirm-reset');
   const resetInput = paneInner.querySelector('#pane-reset-input');
   const confirmMergeBtn = paneInner.querySelector('#btn-pane-confirm-merge');
@@ -276,6 +277,13 @@ function wireUpCommandPaneListeners() {
   if (featureForm) featureForm.addEventListener('submit', handleStartFeature);
   if (commitForm) commitForm.addEventListener('submit', handleQuickCommit);
   if (remoteForm) remoteForm.addEventListener('submit', handleLinkRemote);
+  if (releaseForm) releaseForm.addEventListener('submit', executeRelease);
+
+  if (releaseForm) {
+    paneInner.querySelectorAll('button[data-bump]').forEach(btn => {
+      btn.addEventListener('click', (e) => calculateVersionBump(e.target.dataset.bump));
+    });
+  }
 
   if (resetBtn && resetInput) {
     resetInput.addEventListener('input', (e) => resetBtn.disabled = e.target.value !== "nuke");
@@ -575,11 +583,83 @@ function renderTreeHTML(node) { let html = ''; const entries = Object.entries(no
 async function openRepoViewer() { if (!activeRepo) return; if (actionsMenu) actionsMenu.classList.remove("open"); setUILocked(true, "Building Folder Tree..."); try { const filesArray = await invoke("get_repo_files", { repoPath: activeRepo }); const fileTree = buildTree(filesArray); const vl = document.getElementById('viewer-list'); if (vl) vl.innerHTML = renderTreeHTML(fileTree); const vm = document.getElementById('viewer-modal'); if (vm) vm.classList.add("active"); printToConsole(`📂 Rendered tree for ${filesArray.length} tracked files.`); } catch (error) { printToConsole(`ERROR reading files:\n${error}`); } setUILocked(false); }
 async function runBuildScript() { if (!activeRepo) return; if (actionsMenu) actionsMenu.classList.remove("open"); setUILocked(true, "Running NPM Build..."); printToConsole(`📦 Running "npm run build"...\nProcessing on engine...`); try { const result = await invoke("run_build", { repoPath: activeRepo }); printToConsole(`✅ Build Complete:\n\n${result}`); } catch (error) { printToConsole(`❌ Build Failed:\n\n${error}`); } setUILocked(false); }
 
+async function openReleasePane() {
+  if (!activeRepo) return;
+  if (actionsMenu) actionsMenu.classList.remove("open");
+
+  setUILocked(true, "Fetching current version...");
+  let currentVersion = "0.0.0";
+  try {
+    currentVersion = await getVersion();
+  } catch (err) { printToConsole(`Warning: Could not fetch version - ${err}`); }
+
+  requestPaneSwitch('release', 'release-version-input');
+
+  // Wait for pane animation, then inject version dynamically
+  setTimeout(() => {
+    const display = document.getElementById('current-version-display');
+    const input = document.getElementById('release-version-input');
+    if (display) display.innerText = currentVersion;
+    if (input) input.value = currentVersion;
+    setUILocked(false);
+  }, 350);
+}
+
+function calculateVersionBump(type) {
+  const display = document.getElementById('current-version-display');
+  if (!display) return;
+  const currentVersion = display.innerText;
+  let parts = currentVersion.replace('v', '').split('.').map(Number);
+
+  if (parts.length !== 3 || isNaN(parts[0])) return;
+
+  if (type === 'patch') parts[2] += 1;
+  if (type === 'minor') { parts[1] += 1; parts[2] = 0; }
+  if (type === 'major') { parts[0] += 1; parts[1] = 0; parts[2] = 0; }
+
+  const input = document.getElementById('release-version-input');
+  if (input) input.value = parts.join('.');
+}
+
+async function executeRelease(e) {
+  e.preventDefault();
+  const input = paneInner.querySelector('#release-version-input');
+  if (!input) return;
+
+  const targetVersion = input.value.replace('v', '').trim();
+  if (!targetVersion) return;
+
+  const currentVersionDisplay = document.getElementById('current-version-display');
+  const currentVersion = currentVersionDisplay ? currentVersionDisplay.innerText.replace('v', '').trim() : "";
+
+  if (targetVersion === currentVersion) {
+    printToConsole(`❌ Release Cancelled: Target version (v${targetVersion}) is identical to the current version. Please bump the version using the buttons above.`);
+    return;
+  }
+
+  const confirmed = await appConfirm("🚀 Cut Production Release?", `Are you sure you want to release version <strong>v${targetVersion}</strong>?<br><br>This will tag the repository and trigger the GitHub Action build pipeline.`, "Push & Build", "btn-d");
+  if (!confirmed) return;
+
+  closeCommandPane();
+  setUILocked(true, `Tagging & Pushing v${targetVersion}...`);
+  printToConsole(`$ npm version ${targetVersion} && git push origin HEAD --follow-tags...`);
+
+  try {
+    const output = await invoke('cut_release', { targetVersion });
+    printToConsole(output);
+    printToConsole(`✅ Release v${targetVersion} successfully tagged and pushed!`);
+    printToConsole(`⏳ GitHub Action is now building your app in the background.`);
+  } catch (err) {
+    printToConsole(`❌ Release Error: ${err}\n(Make sure all your changes are committed before cutting a release!)`);
+  }
+  setUILocked(false);
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   mainTopbar = document.getElementById("main-topbar"); defaultControls = document.getElementById("topbar-default-controls"); tmControls = document.getElementById("topbar-time-machine-controls"); tmReturnBtn = document.getElementById("btn-tm-return"); tmRevertBtn = document.getElementById("btn-tm-revert");
   branchDropdownEl = document.querySelector("#branch-dropdown"); repoDropdownEl = document.querySelector("#repo-dropdown"); outputConsole = document.querySelector("#output-console");
   historyBtn = document.querySelector("#btn-history"); commitBtn = document.querySelector("#btn-commit"); featureBtn = document.querySelector("#btn-feature"); revertBtn = document.querySelector("#btn-revert"); mergeBtn = document.querySelector("#btn-merge");
-  actionsToggleBtn = document.querySelector("#btn-actions-toggle"); actionsMenu = document.querySelector("#actions-menu"); actionViewRepo = document.querySelector("#action-view-repo"); actionRunBuild = document.querySelector("#action-run-build"); actionCleanStage = document.querySelector("#action-clean-stage"); actionLinkRemote = document.querySelector("#action-link-remote");
+  actionsToggleBtn = document.querySelector("#btn-actions-toggle"); actionsMenu = document.querySelector("#actions-menu"); actionViewRepo = document.querySelector("#action-view-repo"); actionRunBuild = document.querySelector("#action-run-build"); actionCleanStage = document.querySelector("#action-clean-stage"); actionLinkRemote = document.querySelector("#action-link-remote"); actionCutRelease = document.querySelector("#action-cut-release");
   commandPane = document.querySelector("#command-pane"); paneInner = document.querySelector("#command-pane-inner"); paneProgressFooter = document.querySelector("#pane-progress-footer"); paneProgressText = document.querySelector("#pane-progress-text"); paneProgressBar = document.querySelector("#pane-progress-bar"); paneDoneBtn = document.querySelector("#btn-pane-done");
   terminalInputForm = document.querySelector("#terminal-input-form"); customCmdInput = document.querySelector("#custom-cmd-input");
   //-- NEW SELECTOR --//
@@ -613,6 +693,7 @@ window.addEventListener("DOMContentLoaded", () => {
   if (actionViewRepo) actionViewRepo.addEventListener("click", openRepoViewer);
   if (actionRunBuild) actionRunBuild.addEventListener("click", runBuildScript);
   if (actionLinkRemote) actionLinkRemote.addEventListener("click", openRemotePane);
+  if (actionCutRelease) actionCutRelease.addEventListener("click", openReleasePane);
 
   if (terminalInputForm) terminalInputForm.addEventListener("submit", handleTerminalInput);
   if (customCmdInput) customCmdInput.addEventListener("keydown", handleTerminalKeydown);

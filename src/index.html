@@ -374,6 +374,7 @@
               <div class="dmi" id="action-run-build">📦 Run NPM Build</div>
               <!-- RESTORED ACTION -->
               <div class="dmi" id="action-link-remote">🔗 Link to GitHub</div>
+              <div class="dmi" id="action-cut-release" style="color: var(--a2);">🚀 Cut Release</div>
             </div>
           </div>
         </div>
@@ -497,6 +498,38 @@
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;"><button type="button"
           class="btn-cancel-pane btn btn-g">Cancel</button><button type="submit" class="btn" style="color: #000;">🔗
           Link & Sync</button></div>
+    </form>
+  </template>
+
+  <template id="template-release">
+    <form id="release-form" style="display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 16px;">
+      <div>
+        <label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">🚀 Cut Production Release</label>
+        <p style="font-size: 10px; color: var(--td); margin-top: 4px;">Current Version: <strong
+            id="current-version-display" style="color: var(--a2);">Loading...</strong></p>
+      </div>
+
+      <div style="display: flex; gap: 6px; margin-bottom: 4px;">
+        <button type="button" class="btn btn-g" data-bump="patch"
+          style="flex: 1; justify-content: center; font-size: 10px;">Bump Patch</button>
+        <button type="button" class="btn btn-g" data-bump="minor"
+          style="flex: 1; justify-content: center; font-size: 10px;">Bump Minor</button>
+        <button type="button" class="btn btn-g" data-bump="major"
+          style="flex: 1; justify-content: center; font-size: 10px;">Bump Major</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="color: var(--tm); font-size: 10px; text-transform: uppercase;">Target Version</label>
+        <div class="fake-input single-line">
+          <input type="text" id="release-version-input" required placeholder="e.g. 1.0.5">
+        </div>
+        <span style="font-size: 9px; color: var(--td);">Manually override or use the buttons above.</span>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+        <button type="button" class="btn-cancel-pane btn btn-g">Cancel</button>
+        <button type="submit" class="btn" style="color: #000;">🚀 Push & Build</button>
+      </div>
     </form>
   </template>
 

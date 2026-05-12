@@ -35,7 +35,6 @@
       "icons/icon.ico"
     ]
   },
-  "productName": "Neon GIT Manager",
-  "version": "1.0.0",
-  "identifier": "com.vivekchawda.neon-git"
+  "productName": "NeonGIT",
+  "identifier": "com.something.neongit"
 }
