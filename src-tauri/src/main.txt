@@ -615,6 +615,42 @@ fn delete_branch(repo_path: String, branch_name: String) -> Result<String, Strin
     }
 }
 
+#[tauri::command]
+async fn cut_release(repo_path: String, target_version: String) -> Result<String, String> {
+    let npm_cmd = if cfg!(target_os = "windows") {
+        "npm.cmd"
+    } else {
+        "npm"
+    };
+    let version_output = std::process::Command::new(npm_cmd)
+        .current_dir(&repo_path)
+        .args(["version", &target_version])
+        .output()
+        .map_err(|e| format!("Failed to execute npm version: {}", e))?;
+
+    if !version_output.status.success() {
+        return Err(String::from_utf8_lossy(&version_output.stderr).to_string());
+    }
+
+    let mut logs = String::from_utf8_lossy(&version_output.stdout).to_string();
+
+    let push_output = std::process::Command::new("git")
+        .current_dir(&repo_path)
+        .args(["push", "origin", "HEAD", "--follow-tags"])
+        .output()
+        .map_err(|e| format!("Failed to execute git push: {}", e))?;
+
+    if !push_output.status.success() {
+        return Err(String::from_utf8_lossy(&push_output.stderr).to_string());
+    }
+
+    logs.push_str("\n");
+    logs.push_str(&String::from_utf8_lossy(&push_output.stderr));
+    logs.push_str(&String::from_utf8_lossy(&push_output.stdout));
+
+    Ok(logs)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -641,7 +677,8 @@ fn main() {
             safe_rollback,
             hard_reset,
             delete_branch,
-            perform_merge
+            perform_merge,
+            cut_release
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

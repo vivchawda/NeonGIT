@@ -21,7 +21,23 @@ let aboutModal, openAboutBtn, closeAboutBtn, viewerModal, closeViewerBtn, viewer
 let footerText, footerDot, loadingSpinner, terminalInputForm, customCmdInput;
 
 function saveRepoData() { localStorage.setItem("neon-git-repos", JSON.stringify(repoList)); localStorage.setItem("neon-git-active", activeRepo); }
-function printToConsole(text) { outputConsole.textContent += `\n${text}`; outputConsole.scrollTop = outputConsole.scrollHeight; }
+function printToConsole(text) {
+  if (outputConsole.textContent === "Awaiting repository selection...") outputConsole.textContent = "";
+  const lines = String(text).split('\n');
+  lines.forEach(line => {
+    if (!line && line !== "") return;
+    const span = document.createElement('span');
+    span.style.display = 'block';
+    span.style.minHeight = '14px'; // Keeps empty line spacing intact
+    if (line.includes('✅') || line.includes('Success')) span.style.color = '#4ade80'; // Green
+    else if (line.includes('❌') || line.includes('ERROR') || line.includes('Failed') || line.includes('CRITICAL')) span.style.color = 'var(--a3)'; // Red
+    else if (line.startsWith('$') || line.startsWith('>')) span.style.color = 'var(--a2)'; // Blue
+    else span.style.color = 'var(--a5)'; // Default Aqua
+    span.textContent = line;
+    outputConsole.appendChild(span);
+  });
+  outputConsole.scrollTop = outputConsole.scrollHeight;
+}
 
 function setUILocked(isLocked, statusMessage = "System Idle") {
   const shouldLockGrid = isTimeMachineMode ? true : isLocked;
@@ -51,7 +67,19 @@ function renderRepoDropdown() {
 
 async function updateUIState() {
   renderRepoDropdown(); const appWindow = getCurrentWindow();
-  try { const appVersion = await getVersion(); const versionDisplay = document.getElementById('app-version-display'); if (versionDisplay) versionDisplay.textContent = appVersion; } catch (err) { }
+  try {
+    const appVersion = await getVersion();
+    const versionDisplay = document.getElementById('app-version-display');
+    if (versionDisplay) versionDisplay.textContent = appVersion;
+
+    // Fetch and format build timestamp
+    const ts = await invoke("get_build_timestamp");
+    const dateDisplay = document.getElementById('app-date-display');
+    if (dateDisplay && ts > 0) {
+      const d = new Date(ts * 1000);
+      dateDisplay.textContent = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+  } catch (err) { }
 
   if (activeRepo) {
     const repoName = activeRepo.split('/').pop(); const newTitle = `Neon GIT Manager - [${repoName}]`;
@@ -201,6 +229,12 @@ function setPaneProgressComplete(message, isError = false) {
   if (paneProgressText) { paneProgressText.textContent = message; paneProgressText.style.color = isError ? 'var(--a3)' : '#4ade80'; }
   if (paneProgressBar) { paneProgressBar.classList.remove('dbf-anim'); paneProgressBar.style.width = '100%'; paneProgressBar.style.background = isError ? 'var(--a3)' : '#4ade80'; }
   if (paneDoneBtn) { paneDoneBtn.style.display = 'block'; paneDoneBtn.onclick = closeCommandPane; }
+
+  if (!isError) {
+    // Option A: Automatically clear inputs (fixing dirty bug) and collapse pane
+    if (paneInner) paneInner.querySelectorAll('input, textarea').forEach(i => i.value = '');
+    setTimeout(() => { if (commandPane && commandPane.classList.contains('open')) closeCommandPane(); }, 2500);
+  }
 }
 
 async function requestPaneSwitch(targetPane, focusId, prefill = {}) {
@@ -288,6 +322,8 @@ function wireUpCommandPaneListeners() {
   if (releaseForm) releaseForm.addEventListener('submit', executeRelease);
 
   if (releaseForm) {
+    const localBtn = paneInner.querySelector('#btn-local-release');
+    if (localBtn) localBtn.addEventListener('click', executeLocalRelease);
     paneInner.querySelectorAll('button[data-bump]').forEach(btn => {
       btn.addEventListener('click', (e) => calculateVersionBump(e.target.dataset.bump));
     });
@@ -664,15 +700,52 @@ async function executeRelease(e) {
   printToConsole(`$ npm version ${targetVersion} && git push origin HEAD --follow-tags...`);
 
   try {
-    // FIX: Inject activeRepo so Rust executes in the correct directory
     const output = await invoke('cut_release', { repoPath: activeRepo, targetVersion: targetVersion });
     printToConsole(output);
     printToConsole(`✅ Release v${targetVersion} successfully tagged and pushed!`);
     printToConsole(`⏳ GitHub Action is now building your app in the background.`);
+    // Option A: Auto collapse & wipe dirty data
+    if (paneInner) paneInner.querySelectorAll('input').forEach(i => i.value = '');
+    setTimeout(() => { if (commandPane && commandPane.classList.contains('open')) closeCommandPane(); }, 2500);
   } catch (err) {
     printToConsole(`❌ Release Error: ${err}\n(Make sure all your changes are committed before cutting a release!)`);
   }
   setUILocked(false);
+}
+
+async function executeLocalRelease(e) {
+  e.preventDefault();
+  const input = paneInner.querySelector('#release-version-input');
+  if (!input) return;
+
+  const targetVersion = input.value.replace('v', '').trim();
+  if (!targetVersion) return;
+
+  const confirmed = await appConfirm("💻 Build Locally?", `Are you sure you want to release and build version <strong>v${targetVersion}</strong> on this machine?<br><br>This bypasses GitHub Actions and will take a few minutes to compile.`, "Start Build", "btn-g");
+  if (!confirmed) return;
+
+  // Swap to progress UI since compilation is slow
+  const releaseForm = paneInner.querySelector('#release-form');
+  if (releaseForm) releaseForm.style.display = "none";
+  showPaneProgress("Starting Local Compiler Engine...");
+  setUILocked(true, `Compiling v${targetVersion}...`);
+  printToConsole(`$ npm run tauri build (Local Mode)`);
+
+  const unlisten = await listen('build-progress', (event) => {
+    if (paneProgressText) paneProgressText.textContent = event.payload;
+    printToConsole(`> ${event.payload}`);
+  });
+
+  try {
+    const output = await invoke('cut_local_release', { repoPath: activeRepo, targetVersion: targetVersion });
+    setPaneProgressComplete(`✅ Local Release Successful!`);
+    printToConsole(output);
+  } catch (err) {
+    setPaneProgressComplete("❌ Build Error. See console.", true);
+    printToConsole(`❌ Release Error: ${err}`);
+  }
+  setUILocked(false); // CRITICAL FIX: Unlock grid if NPM fails
+  unlisten();
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -727,4 +800,38 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.querySelectorAll('#about-modal a').forEach(a => { a.addEventListener('click', (e) => { e.preventDefault(); invoke('plugin:opener|open', { path: a.href }); }); });
   sanitizeSavedRepos().then(() => updateUIState());
+
+  // Global Keyboard Shortcuts
+  document.addEventListener("keydown", (e) => {
+    // Escape key closes modals and command panes
+    if (e.key === 'Escape') {
+      const activeModals = document.querySelectorAll('.modal-overlay.active');
+      if (activeModals.length > 0) {
+        activeModals.forEach(m => m.classList.remove('active'));
+        return;
+      }
+      if (commandPane && commandPane.classList.contains('open')) {
+        closeCommandPane();
+        return;
+      }
+    }
+
+    // Prevent triggering if user is actively typing in a terminal or form input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.metaKey || e.ctrlKey) {
+      if (e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (!commitBtn.disabled) activePane === 'commit' ? closeCommandPane() : openCommitPane();
+      }
+      if (e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        if (!featureBtn.disabled) activePane === 'feature' ? closeCommandPane() : openFeaturePane();
+      }
+      if (e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        if (!historyBtn.disabled) historyModal.classList.contains('active') ? historyModal.classList.remove('active') : openHistoryModal();
+      }
+    }
+  });
 });

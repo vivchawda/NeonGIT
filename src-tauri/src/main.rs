@@ -651,6 +651,110 @@ async fn cut_release(repo_path: String, target_version: String) -> Result<String
     Ok(logs)
 }
 
+#[tauri::command]
+async fn cut_local_release(
+    window: tauri::Window,
+    repo_path: String,
+    target_version: String,
+) -> Result<String, String> {
+    let npm_cmd = if cfg!(target_os = "windows") {
+        "npm.cmd"
+    } else {
+        "npm"
+    };
+
+    let _ = window.emit(
+        "build-progress",
+        format!("📦 Bumping version to v{}...", target_version),
+    );
+
+    // Inject [skip ci] so GitHub Actions ignores this push
+    let commit_msg = format!("v{} [skip ci]", target_version);
+    let version_output = std::process::Command::new(npm_cmd)
+        .current_dir(&repo_path)
+        .args(["version", &target_version, "-m", &commit_msg])
+        .output()
+        .map_err(|e| format!("Failed npm version: {}", e))?;
+
+    if !version_output.status.success() {
+        return Err(String::from_utf8_lossy(&version_output.stderr).to_string());
+    }
+
+    let _ = window.emit(
+        "build-progress",
+        "🚀 Pushing tag to GitHub (skipping CI)...",
+    );
+    let push_output = std::process::Command::new("git")
+        .current_dir(&repo_path)
+        .args(["push", "origin", "HEAD", "--follow-tags"])
+        .output()
+        .map_err(|e| format!("Failed git push: {}", e))?;
+
+    if !push_output.status.success() {
+        return Err(String::from_utf8_lossy(&push_output.stderr).to_string());
+    }
+
+    let _ = window.emit(
+        "build-progress",
+        "⚙️ Compiling Local Tauri App (This will take a few minutes)...",
+    );
+
+    // Stream output directly so the UI doesn't look frozen during the heavy compilation
+    let mut build_cmd = std::process::Command::new(npm_cmd)
+        .current_dir(&repo_path)
+        .args(["run", "tauri", "build"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn tauri build: {}", e))?;
+
+    if let Some(stdout) = build_cmd.stdout.take() {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines().flatten() {
+            let _ = window.emit("build-progress", line);
+        }
+    }
+
+    let build_status = build_cmd.wait().map_err(|e| e.to_string())?;
+
+    if !build_status.success() {
+        return Err("Local build failed. Check terminal output.".to_string());
+    }
+
+    let _ = window.emit("build-progress", "✅ Build Complete! Opening Finder...");
+
+    // Open macOS Finder directly to the compiled bundles
+    let macos_path = Path::new(&repo_path).join("src-tauri/target/release/bundle/macos");
+    if macos_path.exists() {
+        std::process::Command::new("open")
+            .arg(&macos_path)
+            .spawn()
+            .ok();
+    } else {
+        let dmg_path = Path::new(&repo_path).join("src-tauri/target/release/bundle/dmg");
+        std::process::Command::new("open")
+            .arg(&dmg_path)
+            .spawn()
+            .ok();
+    }
+
+    Ok(format!("Local release v{} successful!", target_version))
+}
+
+#[tauri::command]
+fn get_build_timestamp() -> u64 {
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Ok(metadata) = std::fs::metadata(exe_path) {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(duration) = modified.duration_since(std::time::SystemTime::UNIX_EPOCH) {
+                    return duration.as_secs();
+                }
+            }
+        }
+    }
+    0
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -678,7 +782,9 @@ fn main() {
             hard_reset,
             delete_branch,
             perform_merge,
-            cut_release
+            cut_release,
+            cut_local_release,
+            get_build_timestamp
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
