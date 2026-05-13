@@ -228,6 +228,14 @@ function openCommandPane(templateId, focusId, prefill = {}) {
   if (prefill.type) { const rad = paneInner.querySelector(`input[name="commit-type"][value="${prefill.type}"]`); if (rad) rad.checked = true; }
   if (prefill.remoteUrl) { const ru = paneInner.querySelector('#remote-url'); if (ru) ru.value = prefill.remoteUrl; }
 
+  // Safely inject Release Pane data immediately upon render
+  if (prefill.currentVersion) {
+    const display = paneInner.querySelector('#current-version-display');
+    const input = paneInner.querySelector('#release-version-input');
+    if (display) display.innerText = prefill.currentVersion;
+    if (input) input.value = prefill.currentVersion;
+  }
+
   if (templateId === 'template-merge') {
     const currentBranch = branchDropdownEl.value;
     if (currentBranch === "main" || currentBranch === "master") { printToConsole("❌ Already on primary branch."); closeCommandPane(); return; }
@@ -590,23 +598,14 @@ async function openReleasePane() {
   setUILocked(true, "Fetching live repo version...");
   let currentVersion = "0.0.0";
   try {
-    // Read the exact version directly from the active repo's package.json
     const rawOutput = await invoke("run_raw_command", { repoPath: activeRepo, cmdString: "npm pkg get version" });
     if (rawOutput) currentVersion = rawOutput.replace(/"/g, '').trim();
   } catch (err) {
-    printToConsole(`Warning: Could not fetch version from package.json - ${err}`);
+    printToConsole(`Warning: Could not fetch version - ${err}`);
   }
 
-  requestPaneSwitch('release', 'release-version-input');
-
-  // Wait for pane animation, then inject version dynamically into the visible pane
-  setTimeout(() => {
-    const display = paneInner.querySelector('#current-version-display');
-    const input = paneInner.querySelector('#release-version-input');
-    if (display) display.innerText = currentVersion;
-    if (input) input.value = currentVersion;
-    setUILocked(false);
-  }, 350);
+  // Use the standard prefill system to safely inject data without fragile timeouts
+  requestPaneSwitch('release', 'release-version-input', { currentVersion: currentVersion });
 }
 
 function calculateVersionBump(type) {
