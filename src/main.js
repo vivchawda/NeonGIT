@@ -75,11 +75,15 @@ async function updateUIState() {
     // Fetch and format build timestamp
     const ts = await invoke("get_build_timestamp");
     const dateDisplay = document.getElementById('app-date-display');
-    if (dateDisplay && ts > 0) {
-      const d = new Date(ts * 1000);
-      dateDisplay.textContent = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (dateDisplay) {
+      if (ts > 0) {
+        const d = new Date(ts * 1000);
+        dateDisplay.textContent = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      } else {
+        dateDisplay.textContent = "Dev Build";
+      }
     }
-  } catch (err) { }
+  } catch (err) { printToConsole(`Warning UI Update: ${err}`); }
 
   if (activeRepo) {
     const repoName = activeRepo.split('/').pop(); const newTitle = `Neon GIT Manager - [${repoName}]`;
